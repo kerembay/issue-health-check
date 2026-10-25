@@ -1,0 +1,42 @@
+modules:
+  jira:issuePanel:
+    - key: issue-health-check-hello-world-issue-panel
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: issue-health-check
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+  
+  # YENİ EKLENEN KISIM: Proje Ayarları Sayfası
+  jira:projectSettingsPage:
+    - key: issue-health-check-settings
+      resource: settings-page
+      resolver:
+        function: resolver
+      render: native
+      title: Health Check Settings
+
+  function:
+    - key: resolver
+      handler: index.handler
+
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+  # YENİ EKLENEN KISIM: Ayar sayfasının arayüz dosyası
+  - key: settings-page
+    path: src/frontend/settings.jsx
+
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/1090f548-2bd6-4752-9e51-fd176ae7ffc2
+
+permissions:
+  scopes:
+    - read:jira-work
+    # YENİ EKLENEN KISIM: Forge veritabanına yazma/okuma izni
+    - storage:app
