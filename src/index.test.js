@@ -53,6 +53,9 @@ const adminPermission = jsonResponse({ permissions: { ADMINISTER_PROJECTS: { hav
 
 const projectContext = { extension: { project: { id: '10001', key: 'ABC' } } };
 
+// Proje ID'si olmayan, sadece proje anahtarını taşıyan bir context.
+const keyOnlyContext = { extension: { project: { key: 'ABC' } } };
+
 beforeEach(() => {
   jest.resetAllMocks();
 });
@@ -73,10 +76,36 @@ describe('getSettings', () => {
     expect(await handler.getSettings({ context: projectContext })).toEqual(DEFAULT_SETTINGS);
   });
 
-  test('Context\'te proje ID yoksa KVS\'ye gitmeden varsayılanları döner', async () => {
-    const result = await handler.getSettings({ context: { extension: { project: { key: 'ABC' } } } });
+  test('Context\'te proje ID de key de yoksa Jira/KVS\'ye gitmeden varsayılanları döner', async () => {
+    const result = await handler.getSettings({ context: { extension: {} } });
     expect(result).toEqual(DEFAULT_SETTINGS);
+    expect(mockRequestJira).not.toHaveBeenCalled();
     expect(mockKvsGet).not.toHaveBeenCalled();
+  });
+
+  test('Context\'te sadece key varsa ID\'yi /rest/api/3/project/{key} ile çözer', async () => {
+    mockRequestJira.mockResolvedValue(jsonResponse({ id: '10001', key: 'ABC' }));
+    mockKvsGet.mockResolvedValue({ labelsEnabled: true });
+
+    const result = await handler.getSettings({ context: keyOnlyContext });
+
+    expect(mockRequestJira).toHaveBeenCalledTimes(1);
+    expect(mockRequestJira).toHaveBeenCalledWith('/rest/api/3/project/ABC');
+    expect(mockKvsGet).toHaveBeenCalledWith('settings-10001');
+    expect(result).toEqual({ ...DEFAULT_SETTINGS, labelsEnabled: true });
+  });
+
+  test('Key ile ID çözümlenemezse varsayılanlara düşmez, hata verir', async () => {
+    mockRequestJira.mockResolvedValue(jsonResponse({}, false, 404));
+    await expect(handler.getSettings({ context: keyOnlyContext })).rejects.toThrow(
+      "Proje ID'si çözümlenemedi (ABC): 404"
+    );
+    expect(mockKvsGet).not.toHaveBeenCalled();
+  });
+
+  test('Proje yanıtında id yoksa hata verir', async () => {
+    mockRequestJira.mockResolvedValue(jsonResponse({ key: 'ABC' }));
+    await expect(handler.getSettings({ context: keyOnlyContext })).rejects.toThrow('yanıtta id yok');
   });
 });
 
@@ -118,9 +147,21 @@ describe('saveSettings', () => {
     );
   });
 
-  test('Context\'te proje ID yoksa hata verir', async () => {
+  test('Context\'te sadece key varsa çözülen ID ile yetki kontrolü yapar ve kaydeder', async () => {
+    mockRequestJira
+      .mockResolvedValueOnce(jsonResponse({ id: '10001', key: 'ABC' })) // GET /project/ABC
+      .mockResolvedValueOnce(adminPermission); // GET /mypermissions
+
+    await expect(handler.saveSettings({ context: keyOnlyContext, payload: DEFAULT_SETTINGS })).resolves.toBe(true);
+
+    expect(mockRequestJira.mock.calls[0][0]).toBe('/rest/api/3/project/ABC');
+    expect(mockRequestJira.mock.calls[1][0]).toContain('projectId=10001');
+    expect(mockKvsSet).toHaveBeenCalledWith('settings-10001', DEFAULT_SETTINGS);
+  });
+
+  test('Context\'te proje ID de key de yoksa hata verir', async () => {
     await expect(handler.saveSettings({ context: {}, payload: DEFAULT_SETTINGS })).rejects.toThrow(
-      'Project ID not found'
+      'Project ID or key not found'
     );
     expect(mockRequestJira).not.toHaveBeenCalled();
   });
