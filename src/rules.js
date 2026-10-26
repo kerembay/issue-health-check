@@ -88,13 +88,17 @@ export const extractTextFromAdf = (adf) => {
   return text;
 };
 
+// R3: Issue "Done" statü kategorisinde mi?
+// Jira'da statü kategorisinin "name" alanı site diline göre çevrilir
+// (ör. "Done", "Bitti", "Tamamlandı"), bu yüzden ad karşılaştırması güvenilir
+// değildir. "key" alanı ise dilden bağımsızdır ve tamamlanmış statüler için
+// her zaman 'done' değerini taşır (diğerleri: 'new', 'indeterminate').
+// Resolver da bunu kullanır: Done issue için ayarları okumaya gerek yoktur.
+export const isDoneStatus = (statusCategoryKey) => statusCategoryKey === 'done';
+
 export const evaluateIssueHealth = (issueData, settings) => {
-  // R3: Görev "Done" statü kategorisindeyse hesaplamayı durdur.
-  // Jira'da statü kategorisinin "name" alanı site diline göre çevrilir
-  // (ör. "Done", "Bitti", "Tamamlandı"), bu yüzden ad karşılaştırması güvenilir
-  // değildir. "key" alanı ise dilden bağımsızdır ve tamamlanmış statüler için
-  // her zaman 'done' değerini taşır (diğerleri: 'new', 'indeterminate').
-  if (issueData.statusCategoryKey === 'done') {
+  // R3: Görev Done ise hesaplamayı durdur.
+  if (isDoneStatus(issueData.statusCategoryKey)) {
     return { isDone: true };
   }
 
