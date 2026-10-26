@@ -11,9 +11,31 @@ const resolver = new Resolver();
 // anahtar proje yeniden adlandırılınca değişebilir, ID ise hiç değişmez.
 const settingsStorageKey = (projectId) => `settings-${projectId}`;
 
-// Forge'un modüle verdiği context içinden proje ID'sini okur. Proje ayarları
-// sayfası (jira:projectSettingsPage) context.extension.project.id değerini sağlar.
-const getContextProjectId = (req) => req.context?.extension?.project?.id;
+// Ayarların hangi projeye ait olduğunu belirlemek için proje ID'sini bulur.
+// 1. Forge context'i proje ID'sini veriyorsa (ör. jira:projectSettingsPage
+//    context.extension.project.id) doğrudan onu kullanırız.
+// 2. Context'te sadece proje anahtarı (key, ör. "ABC") varsa ID'yi Jira'dan
+//    GET /rest/api/3/project/{key} ile çözeriz. İstek .asUser() ile yapıldığı
+//    için kullanıcının göremediği bir projenin ID'si de çözülemez.
+// 3. İkisi de yoksa null döner; çağıran taraf ne yapacağına kendisi karar verir.
+// Çözümleme başarısız olursa hata fırlatırız: sessizce varsayılan ayarlara
+// düşmek, yöneticinin yanlışlıkla kayıtlı ayarların üzerine yazmasına yol açabilir.
+const resolveProjectId = async (req) => {
+  const project = req.context?.extension?.project;
+  if (project?.id) return project.id;
+  if (!project?.key) return null;
+
+  const response = await api.asUser().requestJira(route`/rest/api/3/project/${project.key}`);
+  if (!response.ok) {
+    throw new Error(`Proje ID'si çözümlenemedi (${project.key}): ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data?.id) {
+    throw new Error(`Proje ID'si çözümlenemedi (${project.key}): yanıtta id yok.`);
+  }
+  return data.id;
+};
 
 // Bir projenin kayıtlı ayarlarını okur. Hiç kayıt yoksa varsayılanları döner;
 // kayıt varsa varsayılanlarla birleştiririz ki sonradan eklenen yeni ayar
@@ -24,16 +46,16 @@ const loadSettings = async (projectId) => {
 };
 
 resolver.define('getSettings', async (req) => {
-  const projectId = getContextProjectId(req);
+  const projectId = await resolveProjectId(req);
   if (!projectId) return DEFAULT_SETTINGS;
 
   return loadSettings(projectId);
 });
 
 resolver.define('saveSettings', async (req) => {
-  const projectId = getContextProjectId(req);
+  const projectId = await resolveProjectId(req);
 
-  if (!projectId) throw new Error('Project ID not found in context.');
+  if (!projectId) throw new Error('Project ID or key not found in context.');
 
   // R9: Güvenlik Kontrolü - Kullanıcının "ADMINISTER_PROJECTS" yetkisi var mı?
   const permissionRes = await api.asUser().requestJira(
@@ -89,8 +111,9 @@ resolver.define('getIssueHealth', async (req) => {
   };
 
   // Proje ID'sini Jira'nın döndürdüğü issue verisinden alıyoruz; bu, issue'nun
-  // gerçekten ait olduğu projedir. Context'te yoksa varsayılan ayarlar kullanılır.
-  const projectId = fields.project?.id || getContextProjectId(req);
+  // gerçekten ait olduğu projedir. Yanıtta yoksa context'ten çözmeyi deneriz;
+  // o da yoksa varsayılan ayarlar kullanılır.
+  const projectId = fields.project?.id || (await resolveProjectId(req));
   const currentSettings = projectId ? await loadSettings(projectId) : DEFAULT_SETTINGS;
 
   return evaluateIssueHealth(issueData, currentSettings);
