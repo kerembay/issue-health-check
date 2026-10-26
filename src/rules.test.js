@@ -90,6 +90,28 @@ describe('Issue Health Check Rules Engine', () => {
     expect(evaluateIssueHealth(perfectIssue, customSettings).results.find(r => r.name === 'Description').passed).toBe(false);
   });
 
+  test('Açıklama kontrolü: sadece boşluktan oluşan açıklama geçmez', () => {
+    const blankIssue = { ...perfectIssue, descriptionText: ' '.repeat(40) + '\n\t\n' };
+    const result = evaluateIssueHealth(blankIssue, DEFAULT_SETTINGS).results.find(r => r.name === 'Description');
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain('currently 0');
+  });
+
+  test('Açıklama kontrolü: baş/son boşluklar uzunluğa sayılmaz', () => {
+    // 29 anlamlı karakter + boşluklar: ham uzunluk 30'u geçse de kontrol başarısız olmalı
+    const padded = { ...perfectIssue, descriptionText: '   ' + 'a'.repeat(29) + '   ' };
+    expect(evaluateIssueHealth(padded, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(false);
+
+    // Tam 30 anlamlı karakter: sınırda geçer (aradaki boşluklar sayılır)
+    const exact = { ...perfectIssue, descriptionText: '  ' + 'a'.repeat(14) + '  ' + 'b'.repeat(14) + '  ' };
+    expect(evaluateIssueHealth(exact, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(true);
+  });
+
+  test('Açıklama kontrolü: açıklama hiç yoksa (undefined) hata vermeden başarısız olur', () => {
+    const noDesc = { ...perfectIssue, descriptionText: undefined };
+    expect(evaluateIssueHealth(noDesc, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(false);
+  });
+
   test('ADF metin çıkarma (extractTextFromAdf)', () => {
     const adf = {
       content: [
