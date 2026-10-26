@@ -1,0 +1,5 @@
+# Bağımlılıklar ve üretilen dosyalar biçimlendirilmez.
+node_modules/
+coverage/
+.forge/
+package-lock.json
