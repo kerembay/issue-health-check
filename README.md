@@ -157,7 +157,7 @@ For live development, run `forge tunnel`. Code changes are hot reloaded, but cha
 
 ```bash
 npm test          # run the Jest tests
-npm run lint      # ESLint + Prettier check (fails on any problem)
+npm run lint      # eslint src --ext .js,.jsx + Prettier check (fails on any problem)
 npm run lint:fix  # ESLint auto-fix + Prettier write
 npm run format    # format all files with Prettier
 ```
