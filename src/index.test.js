@@ -157,7 +157,7 @@ describe('saveSettings', () => {
 
     expectFailure(result, ERROR_CODES.INVALID_SETTINGS);
     expect(result.error.details).toHaveLength(1);
-    expect(result.error.details[0]).toContain('minDescriptionLength');
+    expect(result.error.details[0]).toBe('Minimum description length must be a whole number from 1 to 500.');
     expect(mockKvsSet).not.toHaveBeenCalled();
   });
 

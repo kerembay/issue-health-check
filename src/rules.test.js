@@ -420,8 +420,8 @@ describe('validateSettings', () => {
     expect(result.valid).toBe(false);
     expect(result.settings).toBeNull();
     expect(result.errors).toHaveLength(2);
-    expect(result.errors[0]).toContain('assigneeEnabled');
-    expect(result.errors[1]).toContain('labelsEnabled');
+    expect(result.errors[0]).toBe('Assignee check must be turned on or off.');
+    expect(result.errors[1]).toBe('Labels check must be turned on or off.');
   });
 
   test.each([1, 30, 500])('minDescriptionLength sınır içi değer kabul edilir: %p', (value) => {
@@ -433,7 +433,7 @@ describe('validateSettings', () => {
     (value) => {
       const result = validateSettings({ minDescriptionLength: value });
       expect(result.valid).toBe(false);
-      expect(result.errors[0]).toContain('minDescriptionLength');
+      expect(result.errors[0]).toBe('Minimum description length must be a whole number from 1 to 500.');
     }
   );
 
@@ -444,7 +444,7 @@ describe('validateSettings', () => {
   test.each([0, 366, 1.5, '14'])('staleLimitDays geçersiz değer reddedilir: %p', (value) => {
     const result = validateSettings({ staleLimitDays: value });
     expect(result.valid).toBe(false);
-    expect(result.errors[0]).toContain('staleLimitDays');
+    expect(result.errors[0]).toBe('Stale limit (days) must be a whole number from 1 to 365.');
   });
 
   test('Birden fazla hata birlikte raporlanır', () => {
