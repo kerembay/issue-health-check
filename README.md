@@ -51,7 +51,7 @@ Open a project in Jira and go to **Project settings → Health Check Settings**.
 - set the minimum description length (an integer from 1 to 500),
 - set the stale limit in days for the "recently updated" check (an integer from 1 to 365).
 
-Values outside these ranges are rejected by the settings page before saving. Settings are stored per project in Forge Key-Value Storage under the key `settings-<projectId>` (and also `settings-<projectKey>` as a fallback). Projects that have never saved settings use the defaults.
+Values outside these ranges are rejected by the settings page before saving, and again on the server by `validateSettings` in `src/rules.js` (the `saveSettings` resolver refuses invalid payloads and stores only known fields). Settings are stored per project in Forge Key-Value Storage under the key `settings-<projectId>` (and also `settings-<projectKey>` as a fallback). Projects that have never saved settings use the defaults.
 
 ## Architecture
 
