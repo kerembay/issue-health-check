@@ -137,6 +137,17 @@ describe('Issue Health Check Rules Engine', () => {
     expect(extractTextFromAdf(adf)).toBe('Hello World');
     expect(extractTextFromAdf(null)).toBe('');
   });
+
+  test('ADF metin çıkarma: metinsiz düğümler (ör. hardBreak) atlanır', () => {
+    const adf = {
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Satır 1' }, { type: 'hardBreak' }, { type: 'text', text: 'Satır 2' }] },
+        { type: 'rule' },
+      ],
+    };
+    expect(extractTextFromAdf(adf)).toBe('Satır 1Satır 2');
+    expect(extractTextFromAdf({ type: 'doc' })).toBe('');
+  });
 });
 
 describe('validateSettings', () => {
