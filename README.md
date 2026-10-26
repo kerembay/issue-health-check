@@ -86,6 +86,7 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 ├── package.json
 ├── babel.config.json       # Lets Jest understand ES modules
 ├── .eslintrc
+├── .prettierrc
 └── src
     ├── index.js            # Resolver: getIssueHealth, getSettings, saveSettings
     ├── rules.js            # Default settings and the health scoring logic
@@ -101,7 +102,7 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 - Atlassian Forge, runtime `nodejs24.x`
 - Forge UI Kit (`@forge/react`) with native rendering
 - `@forge/resolver`, `@forge/bridge`, `@forge/api`, `@forge/kvs`
-- Jest for tests, ESLint for linting
+- Jest for tests, ESLint for linting, Prettier for formatting
 
 ## Permissions
 
@@ -156,11 +157,12 @@ For live development, run `forge tunnel`. Code changes are hot reloaded, but cha
 
 ```bash
 npm test          # run the Jest tests
-npm run lint      # lint the source files
-npm run lint:fix  # lint and auto-fix
+npm run lint      # ESLint + Prettier check (fails on any problem)
+npm run lint:fix  # ESLint auto-fix + Prettier write
+npm run format    # format all files with Prettier
 ```
 
-The tests in `src/rules.test.js` cover the done-status case, the all-checks-disabled case, a fully healthy issue (100, `Healthy`), and an issue that fails most checks (25, `At risk`).
+`src/rules.test.js` covers every check (including the description length limit), past and today's due dates, stale issues, labels, the score band boundaries (80 and 50), key-based Done detection, `DEFAULT_SETTINGS`, `validateSettings` and ADF text extraction. `src/index.test.js` tests the resolvers with mocked Forge modules (single `settings-<projectId>` KVS key, permission check, validation). Run `npx jest --coverage` to see coverage.
 
 To see runtime errors from a deployed app, use `forge logs -e development`.
 
