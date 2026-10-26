@@ -249,6 +249,12 @@ describe('getIssueHealth', () => {
     expect(result).toEqual({ ok: true, data: { isDone: true } });
   });
 
+  test("Done issue için KVS'den ayar okunmaz", async () => {
+    mockRequestJira.mockResolvedValue(jsonResponse({ fields: issueFields }));
+    await handler.getIssueHealth({ context: issueContext });
+    expect(mockKvsGet).not.toHaveBeenCalled();
+  });
+
   test('Issue ID yoksa NO_ISSUE_CONTEXT döner', async () => {
     const result = await handler.getIssueHealth({ context: {} });
     expectFailure(result, ERROR_CODES.NO_ISSUE_CONTEXT);

@@ -1,4 +1,4 @@
-import { evaluateIssueHealth, DEFAULT_SETTINGS, extractTextFromAdf, validateSettings } from './rules.js';
+import { evaluateIssueHealth, DEFAULT_SETTINGS, extractTextFromAdf, isDoneStatus, validateSettings } from './rules.js';
 
 describe('Issue Health Check Rules Engine', () => {
   // Testlerde kullanacağımız, tüm kuralları geçen kusursuz bir örnek görev
@@ -30,6 +30,17 @@ describe('Issue Health Check Rules Engine', () => {
     // Eski davranışta ad karşılaştırması yapılıyordu; artık sadece key önemli.
     const issue = { ...perfectIssue, statusCategory: 'Done', statusCategoryKey: 'indeterminate' };
     expect(evaluateIssueHealth(issue, DEFAULT_SETTINGS).isDone).toBeUndefined();
+  });
+
+  test.each([
+    ['done', true],
+    ['new', false],
+    ['indeterminate', false],
+    ['', false],
+    [undefined, false],
+    ['Done', false], // key her zaman küçük harftir; ad benzeri değerler Done sayılmaz
+  ])('isDoneStatus(%p) → %p', (key, expected) => {
+    expect(isDoneStatus(key)).toBe(expected);
   });
 
   test('Uç Durum (R3): Tüm ayarlar kapalıysa noChecksEnabled döner', () => {
