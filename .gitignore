@@ -50,3 +50,6 @@ Thumbs.db
 
 
 /.forge/
+
+# Jest coverage report
+coverage/
