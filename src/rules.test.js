@@ -1,4 +1,4 @@
-import { evaluateIssueHealth, DEFAULT_SETTINGS, extractTextFromAdf } from './rules.js';
+import { evaluateIssueHealth, DEFAULT_SETTINGS, extractTextFromAdf, validateSettings } from './rules.js';
 
 describe('Issue Health Check Rules Engine', () => {
   // Testlerde kullanacağımız, tüm kuralları geçen kusursuz bir örnek görev
@@ -136,5 +136,78 @@ describe('Issue Health Check Rules Engine', () => {
     };
     expect(extractTextFromAdf(adf)).toBe('Hello World');
     expect(extractTextFromAdf(null)).toBe('');
+  });
+});
+
+describe('validateSettings', () => {
+  test('DEFAULT_SETTINGS geçerlidir ve aynen döner', () => {
+    const result = validateSettings(DEFAULT_SETTINGS);
+    expect(result).toEqual({ valid: true, errors: [], settings: DEFAULT_SETTINGS });
+  });
+
+  test('Girdiyi değiştirmez ve yeni bir nesne döner', () => {
+    const input = { ...DEFAULT_SETTINGS, labelsEnabled: true };
+    const snapshot = { ...input };
+    const result = validateSettings(input);
+    expect(input).toEqual(snapshot);
+    expect(result.settings).not.toBe(input);
+    expect(result.settings.labelsEnabled).toBe(true);
+  });
+
+  test('Eksik alanlar varsayılan değerleri alır', () => {
+    const result = validateSettings({ staleLimitDays: 7 });
+    expect(result.valid).toBe(true);
+    expect(result.settings).toEqual({ ...DEFAULT_SETTINGS, staleLimitDays: 7 });
+  });
+
+  test('Bilinmeyen alanlar atılır', () => {
+    const result = validateSettings({ ...DEFAULT_SETTINGS, evil: 'x' });
+    expect(result.valid).toBe(true);
+    expect(result.settings).not.toHaveProperty('evil');
+  });
+
+  test.each([null, undefined, 'text', 42, []])('Nesne olmayan girdi reddedilir: %p', (input) => {
+    const result = validateSettings(input);
+    expect(result.valid).toBe(false);
+    expect(result.settings).toBeNull();
+    expect(result.errors).toHaveLength(1);
+  });
+
+  test('Boolean olmayan açık/kapalı değerleri reddedilir', () => {
+    const result = validateSettings({ ...DEFAULT_SETTINGS, assigneeEnabled: 'true', labelsEnabled: 1 });
+    expect(result.valid).toBe(false);
+    expect(result.settings).toBeNull();
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors[0]).toContain('assigneeEnabled');
+    expect(result.errors[1]).toContain('labelsEnabled');
+  });
+
+  test.each([1, 30, 500])('minDescriptionLength sınır içi değer kabul edilir: %p', (value) => {
+    expect(validateSettings({ minDescriptionLength: value }).valid).toBe(true);
+  });
+
+  test.each([0, 501, -5, 10.5, '30', NaN, Infinity, null])(
+    'minDescriptionLength geçersiz değer reddedilir: %p',
+    (value) => {
+      const result = validateSettings({ minDescriptionLength: value });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('minDescriptionLength');
+    }
+  );
+
+  test.each([1, 14, 365])('staleLimitDays sınır içi değer kabul edilir: %p', (value) => {
+    expect(validateSettings({ staleLimitDays: value }).valid).toBe(true);
+  });
+
+  test.each([0, 366, 1.5, '14'])('staleLimitDays geçersiz değer reddedilir: %p', (value) => {
+    const result = validateSettings({ staleLimitDays: value });
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('staleLimitDays');
+  });
+
+  test('Birden fazla hata birlikte raporlanır', () => {
+    const result = validateSettings({ minDescriptionLength: 0, staleLimitDays: 999, dueDateEnabled: 'no' });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(3);
   });
 });
