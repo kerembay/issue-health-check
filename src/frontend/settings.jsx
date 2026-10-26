@@ -82,7 +82,7 @@ const App = () => {
     try {
       const result = await invoke('saveSettings', newSettings);
       if (result?.ok) {
-        setStatus({ type: 'success', message: 'Proje ayarları başarıyla kaydedildi!' });
+        setStatus({ type: 'success', message: 'Settings saved.' });
       } else if (result?.error?.code === ERROR_CODES.INVALID_SETTINGS && result.error.details?.length) {
         // Backend doğrulamasının ayrıntılı hatalarını da gösteriyoruz.
         setStatus({ type: 'error', message: `${getErrorMessage(result.error)} ${result.error.details.join(' ')}` });
@@ -97,13 +97,13 @@ const App = () => {
   };
 
   if (loading) {
-    return <Spinner size="medium" label="Ayarlar yükleniyor" />;
+    return <Spinner size="medium" label="Loading settings" />;
   }
 
   if (loadError) {
     return (
-      <SectionMessage appearance="error" title="Ayarlar yüklenemedi">
-        <Text>{loadError} Ayarlar yüklenmeden kaydetme yapılamaz.</Text>
+      <SectionMessage appearance="error" title="Couldn't load settings">
+        <Text>{loadError} Settings can't be saved until they load.</Text>
       </SectionMessage>
     );
   }
@@ -111,7 +111,7 @@ const App = () => {
   return (
     <Box padding="space.100">
       <Stack space="space.200">
-        <Text>Bu projedeki görevlerin sağlık durumu için kuralları belirleyin.</Text>
+        <Text>Choose which health checks count in this project and set their limits.</Text>
 
         {status && (
           <SectionMessage appearance={status.type}>
@@ -121,13 +121,13 @@ const App = () => {
 
         <Stack space="space.150">
           <Box>
-            <Label labelFor="descriptionEnabled">Description (Açıklama) Kontrolü</Label>
+            <Label labelFor="descriptionEnabled">Description check</Label>
             <Toggle
               id="descriptionEnabled"
               isChecked={descriptionEnabled}
               onChange={(e) => setDescriptionEnabled(e.target.checked)}
             />
-            <Label labelFor="minDescriptionLength">Minimum Karakter Sayısı (1 - 500)</Label>
+            <Label labelFor="minDescriptionLength">Minimum description length (1 to 500 characters)</Label>
             <Textfield
               id="minDescriptionLength"
               type="number"
@@ -137,7 +137,7 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="assigneeEnabled">Assignee (Atanan Kişi) Kontrolü</Label>
+            <Label labelFor="assigneeEnabled">Assignee check</Label>
             <Toggle
               id="assigneeEnabled"
               isChecked={assigneeEnabled}
@@ -146,7 +146,7 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="dueDateEnabled">Due Date (Bitiş Tarihi) Kontrolü</Label>
+            <Label labelFor="dueDateEnabled">Due date check</Label>
             <Toggle
               id="dueDateEnabled"
               isChecked={dueDateEnabled}
@@ -155,13 +155,13 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="recentlyUpdatedEnabled">Recently Updated Kontrolü</Label>
+            <Label labelFor="recentlyUpdatedEnabled">Recently updated check</Label>
             <Toggle
               id="recentlyUpdatedEnabled"
               isChecked={recentlyUpdatedEnabled}
               onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)}
             />
-            <Label labelFor="staleLimitDays">Kaç gün güncellenmezse uyarı versin? (1 - 365)</Label>
+            <Label labelFor="staleLimitDays">Stale limit (1 to 365 days)</Label>
             <Textfield
               id="staleLimitDays"
               type="number"
@@ -171,12 +171,12 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="labelsEnabled">Labels (Etiket) Kontrolü</Label>
+            <Label labelFor="labelsEnabled">Labels check</Label>
             <Toggle id="labelsEnabled" isChecked={labelsEnabled} onChange={(e) => setLabelsEnabled(e.target.checked)} />
           </Box>
 
           <LoadingButton appearance="primary" isLoading={saving} onClick={handleSave}>
-            Ayarları Kaydet
+            Save settings
           </LoadingButton>
         </Stack>
       </Stack>

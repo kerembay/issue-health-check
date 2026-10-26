@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Text, Box, Stack, Tag, Spinner, SectionMessage } from '@forge/react';
+import ForgeReconciler, { Text, Box, Stack, Lozenge, Spinner, SectionMessage } from '@forge/react';
 import { invoke } from '@forge/bridge';
 import { getErrorMessage } from './errorMessages.js';
 
@@ -23,14 +23,14 @@ const App = () => {
 
   if (error) {
     return (
-      <SectionMessage appearance="error" title="Sağlık durumu yüklenemedi">
+      <SectionMessage appearance="error" title="Couldn't load issue health">
         <Text>{error}</Text>
       </SectionMessage>
     );
   }
 
   if (!healthData) {
-    return <Spinner size="medium" label="Sağlık durumu yükleniyor" />;
+    return <Spinner size="medium" label="Loading issue health" />;
   }
 
   // R3: Görev tamamlandıysa (Done)
@@ -38,7 +38,7 @@ const App = () => {
     return (
       <Box padding="space.100">
         <Text weight="bold">🎉 Done</Text>
-        <Text>Görev tamamlandığı için sağlık kontrolüne gerek yok.</Text>
+        <Text>This issue is done, so no health score is calculated.</Text>
       </Box>
     );
   }
@@ -47,30 +47,33 @@ const App = () => {
   if (healthData.noChecksEnabled) {
     return (
       <Box padding="space.100">
-        <Text weight="bold">⚠️ Kapalı</Text>
-        <Text>Proje ayarlarından tüm sağlık kontrolleri kapatılmış.</Text>
+        <Text weight="bold">⚠️ No checks enabled</Text>
+        <Text>All health checks are turned off in this project's settings.</Text>
       </Box>
     );
   }
 
-  const getBandColor = (band) => {
+  // Bant adını UI Kit Lozenge görünümüne çevirir: yeşil, sarı veya kırmızı.
+  const getBandAppearance = (band) => {
     switch (band) {
       case 'Healthy':
-        return 'green';
+        return 'success';
       case 'Need attention':
-        return 'yellow';
+        return 'moved';
       case 'At risk':
-        return 'red';
+        return 'removed';
       default:
-        return 'standard';
+        return 'default';
     }
   };
 
   return (
     <Box padding="space.100">
       <Stack space="space.100">
-        <Text>Sağlık Puanı: {healthData.score}/100</Text>
-        <Tag text={healthData.band} color={getBandColor(healthData.band)} />
+        <Text>Health score: {healthData.score}/100</Text>
+        <Lozenge appearance={getBandAppearance(healthData.band)} isBold>
+          {healthData.band}
+        </Lozenge>
 
         <Stack space="space.050">
           {healthData.results.map((result) => (
