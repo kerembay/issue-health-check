@@ -4,8 +4,8 @@
   "main": "src/index.js",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint \"src/**/*.{js,jsx}\" && prettier --check .",
-    "lint:fix": "eslint --fix \"src/**/*.{js,jsx}\" && prettier --write .",
+    "lint": "eslint src --ext .js,.jsx && prettier --check .",
+    "lint:fix": "eslint --fix src --ext .js,.jsx && prettier --write .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "jest"
