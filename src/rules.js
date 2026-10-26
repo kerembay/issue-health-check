@@ -121,7 +121,9 @@ export const evaluateIssueHealth = (issueData, settings) => {
 
   if (settings.assigneeEnabled) {
     totalEnabled++;
-    if (issueData.assignee !== null) {
+    // Jira atanmamış issue için null döner; alan hiç gelmezse (undefined) de
+    // "atanmamış" saymak için doğruluk (truthy) kontrolü yapıyoruz.
+    if (issueData.assignee) {
       passedChecks++;
       results.push({ name: 'Assignee', passed: true, message: 'Assignee is set.' });
     } else {
