@@ -51,7 +51,7 @@ Open a project in Jira and go to **Project settings → Health Check Settings**.
 - set the minimum description length (an integer from 1 to 500),
 - set the stale limit in days for the "recently updated" check (an integer from 1 to 365).
 
-Values outside these ranges are rejected by the settings page before saving, and again on the server by `validateSettings` in `src/rules.js` (the `saveSettings` resolver refuses invalid payloads and stores only known fields). Settings are stored per project in Forge Key-Value Storage under the key `settings-<projectId>` (and also `settings-<projectKey>` as a fallback). Projects that have never saved settings use the defaults.
+Values outside these ranges are rejected by the settings page before saving, and again on the server by `validateSettings` in `src/rules.js` (the `saveSettings` resolver refuses invalid payloads and stores only known fields). Settings are stored per project in Forge Key-Value Storage under a single key, `settings-<projectId>`. The numeric project ID is used rather than the project key because the key can change when a project is renamed. Projects that have never saved settings use the defaults.
 
 ## Architecture
 
@@ -63,7 +63,7 @@ Jira issue view ──► issue panel (src/frontend/index.jsx)
                          │                      GET /rest/api/3/issue/{id}
                          │ reads settings
                          ▼
-                   Forge KVS (settings-<project>)
+                   Forge KVS (settings-<projectId>)
                          │
                          ▼
                    rules engine (src/rules.js) ──► score, band, results
@@ -90,6 +90,7 @@ Project settings ──► settings page (src/frontend/settings.jsx)
     ├── index.js            # Resolver: getIssueHealth, getSettings, saveSettings
     ├── rules.js            # Default settings and the health scoring logic
     ├── rules.test.js       # Jest tests for the rules engine
+    ├── index.test.js       # Jest tests for the resolver (Forge modules mocked)
     └── frontend
         ├── index.jsx       # Issue panel UI (UI Kit)
         └── settings.jsx    # Project settings page UI (UI Kit)
