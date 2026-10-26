@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Text, Box, Toggle, Textfield, Button, Stack, SectionMessage } from '@forge/react';
+import ForgeReconciler, {
+  Text,
+  Box,
+  Toggle,
+  Textfield,
+  LoadingButton,
+  Stack,
+  SectionMessage,
+  Spinner,
+  Label,
+} from '@forge/react';
 import { invoke } from '@forge/bridge';
+import { ERROR_CODES } from '../errors.js';
+import { getErrorMessage } from './errorMessages.js';
 
 const App = () => {
   const [descriptionEnabled, setDescriptionEnabled] = useState(true);
@@ -12,11 +24,21 @@ const App = () => {
   const [labelsEnabled, setLabelsEnabled] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  // Ayarlar yüklenemezse formu hiç göstermeyiz. Aksi halde form varsayılan
+  // değerlerle açılır ve yönetici "Kaydet"e basarsa kayıtlı ayarların üzerine
+  // varsayılanlar yazılırdı.
+  const [loadError, setLoadError] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
     invoke('getSettings')
-      .then((data) => {
+      .then((result) => {
+        if (!result?.ok) {
+          setLoadError(getErrorMessage(result?.error));
+          return;
+        }
+        const data = result.data;
         setDescriptionEnabled(Boolean(data.descriptionEnabled));
         setMinDescriptionLength(String(data.minDescriptionLength ?? 30));
         setAssigneeEnabled(Boolean(data.assigneeEnabled));
@@ -24,13 +46,9 @@ const App = () => {
         setRecentlyUpdatedEnabled(Boolean(data.recentlyUpdatedEnabled));
         setStaleLimitDays(String(data.staleLimitDays ?? 14));
         setLabelsEnabled(Boolean(data.labelsEnabled));
-        setLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
-        setStatus({ type: 'error', message: 'Ayarlar yüklenirken hata oluştu.' });
-        setLoading(false);
-      });
+      .catch(() => setLoadError(getErrorMessage(null)))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
@@ -39,7 +57,8 @@ const App = () => {
     const descLen = Number(minDescriptionLength);
     const staleDays = Number(staleLimitDays);
 
-    // R5 Gereksinimi: 1-500 ve 1-365 doğrulaması
+    // R5 Gereksinimi: 1-500 ve 1-365 doğrulaması. Boş alan Number('') = 0 olduğu
+    // için burada reddedilir. Backend aynı kuralları validateSettings ile tekrar uygular.
     if (!Number.isInteger(descLen) || descLen < 1 || descLen > 500) {
       setStatus({
         type: 'error',
@@ -56,27 +75,46 @@ const App = () => {
       return;
     }
 
-    try {
-      const newSettings = {
-        descriptionEnabled,
-        minDescriptionLength: descLen,
-        assigneeEnabled,
-        dueDateEnabled,
-        recentlyUpdatedEnabled,
-        staleLimitDays: staleDays,
-        labelsEnabled,
-      };
+    const newSettings = {
+      descriptionEnabled,
+      minDescriptionLength: descLen,
+      assigneeEnabled,
+      dueDateEnabled,
+      recentlyUpdatedEnabled,
+      staleLimitDays: staleDays,
+      labelsEnabled,
+    };
 
-      await invoke('saveSettings', newSettings);
-      setStatus({ type: 'success', message: 'Proje ayarları başarıyla kaydedildi!' });
-    } catch (err) {
-      console.error(err);
-      setStatus({ type: 'error', message: `Kaydetme hatası: ${err.message}` });
+    // Kaydetme sürerken buton "yükleniyor" durumunda kalır; böylece art arda
+    // tıklamalar birden fazla kayıt isteği göndermez.
+    setSaving(true);
+    try {
+      const result = await invoke('saveSettings', newSettings);
+      if (result?.ok) {
+        setStatus({ type: 'success', message: 'Proje ayarları başarıyla kaydedildi!' });
+      } else if (result?.error?.code === ERROR_CODES.INVALID_SETTINGS && result.error.details?.length) {
+        // Backend doğrulamasının ayrıntılı hatalarını da gösteriyoruz.
+        setStatus({ type: 'error', message: `${getErrorMessage(result.error)} ${result.error.details.join(' ')}` });
+      } else {
+        setStatus({ type: 'error', message: getErrorMessage(result?.error) });
+      }
+    } catch {
+      setStatus({ type: 'error', message: getErrorMessage(null) });
+    } finally {
+      setSaving(false);
     }
   };
 
   if (loading) {
-    return <Text>Ayarlar yükleniyor...</Text>;
+    return <Spinner size="medium" label="Ayarlar yükleniyor" />;
+  }
+
+  if (loadError) {
+    return (
+      <SectionMessage appearance="error" title="Ayarlar yüklenemedi">
+        <Text>{loadError} Ayarlar yüklenmeden kaydetme yapılamaz.</Text>
+      </SectionMessage>
+    );
   }
 
   return (
@@ -92,37 +130,63 @@ const App = () => {
 
         <Stack space="space.150">
           <Box>
-            <Text weight="bold">Description (Açıklama) Kontrolü</Text>
-            <Toggle isChecked={descriptionEnabled} onChange={(e) => setDescriptionEnabled(e.target.checked)} />
-            <Text>Minimum Karakter Sayısı (1 - 500):</Text>
-            <Textfield value={minDescriptionLength} onChange={(e) => setMinDescriptionLength(e.target.value)} />
+            <Label labelFor="descriptionEnabled">Description (Açıklama) Kontrolü</Label>
+            <Toggle
+              id="descriptionEnabled"
+              isChecked={descriptionEnabled}
+              onChange={(e) => setDescriptionEnabled(e.target.checked)}
+            />
+            <Label labelFor="minDescriptionLength">Minimum Karakter Sayısı (1 - 500)</Label>
+            <Textfield
+              id="minDescriptionLength"
+              type="number"
+              value={minDescriptionLength}
+              onChange={(e) => setMinDescriptionLength(e.target.value)}
+            />
           </Box>
 
           <Box>
-            <Text weight="bold">Assignee (Atanan Kişi) Kontrolü</Text>
-            <Toggle isChecked={assigneeEnabled} onChange={(e) => setAssigneeEnabled(e.target.checked)} />
+            <Label labelFor="assigneeEnabled">Assignee (Atanan Kişi) Kontrolü</Label>
+            <Toggle
+              id="assigneeEnabled"
+              isChecked={assigneeEnabled}
+              onChange={(e) => setAssigneeEnabled(e.target.checked)}
+            />
           </Box>
 
           <Box>
-            <Text weight="bold">Due Date (Bitiş Tarihi) Kontrolü</Text>
-            <Toggle isChecked={dueDateEnabled} onChange={(e) => setDueDateEnabled(e.target.checked)} />
+            <Label labelFor="dueDateEnabled">Due Date (Bitiş Tarihi) Kontrolü</Label>
+            <Toggle
+              id="dueDateEnabled"
+              isChecked={dueDateEnabled}
+              onChange={(e) => setDueDateEnabled(e.target.checked)}
+            />
           </Box>
 
           <Box>
-            <Text weight="bold">Recently Updated Kontrolü</Text>
-            <Toggle isChecked={recentlyUpdatedEnabled} onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)} />
-            <Text>Kaç gün güncellenmezse uyarı versin? (1 - 365):</Text>
-            <Textfield value={staleLimitDays} onChange={(e) => setStaleLimitDays(e.target.value)} />
+            <Label labelFor="recentlyUpdatedEnabled">Recently Updated Kontrolü</Label>
+            <Toggle
+              id="recentlyUpdatedEnabled"
+              isChecked={recentlyUpdatedEnabled}
+              onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)}
+            />
+            <Label labelFor="staleLimitDays">Kaç gün güncellenmezse uyarı versin? (1 - 365)</Label>
+            <Textfield
+              id="staleLimitDays"
+              type="number"
+              value={staleLimitDays}
+              onChange={(e) => setStaleLimitDays(e.target.value)}
+            />
           </Box>
 
           <Box>
-            <Text weight="bold">Labels (Etiket) Kontrolü</Text>
-            <Toggle isChecked={labelsEnabled} onChange={(e) => setLabelsEnabled(e.target.checked)} />
+            <Label labelFor="labelsEnabled">Labels (Etiket) Kontrolü</Label>
+            <Toggle id="labelsEnabled" isChecked={labelsEnabled} onChange={(e) => setLabelsEnabled(e.target.checked)} />
           </Box>
 
-          <Button appearance="primary" onClick={handleSave}>
+          <LoadingButton appearance="primary" isLoading={saving} onClick={handleSave}>
             Ayarları Kaydet
-          </Button>
+          </LoadingButton>
         </Stack>
       </Stack>
     </Box>
