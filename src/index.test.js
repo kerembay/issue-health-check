@@ -76,14 +76,14 @@ describe('getSettings', () => {
     expect(await handler.getSettings({ context: projectContext })).toEqual(DEFAULT_SETTINGS);
   });
 
-  test('Context\'te proje ID de key de yoksa Jira/KVS\'ye gitmeden varsayılanları döner', async () => {
+  test("Context'te proje ID de key de yoksa Jira/KVS'ye gitmeden varsayılanları döner", async () => {
     const result = await handler.getSettings({ context: { extension: {} } });
     expect(result).toEqual(DEFAULT_SETTINGS);
     expect(mockRequestJira).not.toHaveBeenCalled();
     expect(mockKvsGet).not.toHaveBeenCalled();
   });
 
-  test('Context\'te sadece key varsa ID\'yi /rest/api/3/project/{key} ile çözer', async () => {
+  test("Context'te sadece key varsa ID'yi /rest/api/3/project/{key} ile çözer", async () => {
     mockRequestJira.mockResolvedValue(jsonResponse({ id: '10001', key: 'ABC' }));
     mockKvsGet.mockResolvedValue({ labelsEnabled: true });
 
@@ -147,7 +147,7 @@ describe('saveSettings', () => {
     );
   });
 
-  test('Context\'te sadece key varsa çözülen ID ile yetki kontrolü yapar ve kaydeder', async () => {
+  test("Context'te sadece key varsa çözülen ID ile yetki kontrolü yapar ve kaydeder", async () => {
     mockRequestJira
       .mockResolvedValueOnce(jsonResponse({ id: '10001', key: 'ABC' })) // GET /project/ABC
       .mockResolvedValueOnce(adminPermission); // GET /mypermissions
@@ -159,7 +159,7 @@ describe('saveSettings', () => {
     expect(mockKvsSet).toHaveBeenCalledWith('settings-10001', DEFAULT_SETTINGS);
   });
 
-  test('Context\'te proje ID de key de yoksa hata verir', async () => {
+  test("Context'te proje ID de key de yoksa hata verir", async () => {
     await expect(handler.saveSettings({ context: {}, payload: DEFAULT_SETTINGS })).rejects.toThrow(
       'Project ID or key not found'
     );
@@ -178,8 +178,10 @@ describe('getIssueHealth', () => {
     labels: [],
   };
 
-  test('Ayarları issue\'nun proje ID anahtarından tek seferde okur', async () => {
-    mockRequestJira.mockResolvedValue(jsonResponse({ fields: { ...issueFields, status: { statusCategory: { key: 'new' } } } }));
+  test("Ayarları issue'nun proje ID anahtarından tek seferde okur", async () => {
+    mockRequestJira.mockResolvedValue(
+      jsonResponse({ fields: { ...issueFields, status: { statusCategory: { key: 'new' } } } })
+    );
     mockKvsGet.mockResolvedValue(undefined);
 
     const result = await handler.getIssueHealth({ context: { extension: { issue: { id: '20001' } } } });
@@ -201,8 +203,8 @@ describe('getIssueHealth', () => {
 
   test('Jira isteği başarısız olursa hata verir', async () => {
     mockRequestJira.mockResolvedValue(jsonResponse({}, false, 404));
-    await expect(
-      handler.getIssueHealth({ context: { extension: { issue: { id: '20001' } } } })
-    ).rejects.toThrow('Failed to load issue data: 404');
+    await expect(handler.getIssueHealth({ context: { extension: { issue: { id: '20001' } } } })).rejects.toThrow(
+      'Failed to load issue data: 404'
+    );
   });
 });

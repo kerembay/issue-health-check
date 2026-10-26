@@ -7,7 +7,7 @@ modules:
       render: native
       title: issue-health-check
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
-  
+
   # YENİ EKLENEN KISIM: Proje Ayarları Sayfası
   jira:projectSettingsPage:
     - key: issue-health-check-settings

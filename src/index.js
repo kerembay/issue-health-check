@@ -58,14 +58,14 @@ resolver.define('saveSettings', async (req) => {
   if (!projectId) throw new Error('Project ID or key not found in context.');
 
   // R9: Güvenlik Kontrolü - Kullanıcının "ADMINISTER_PROJECTS" yetkisi var mı?
-  const permissionRes = await api.asUser().requestJira(
-    route`/rest/api/3/mypermissions?projectId=${projectId}&permissions=ADMINISTER_PROJECTS`
-  );
-  
+  const permissionRes = await api
+    .asUser()
+    .requestJira(route`/rest/api/3/mypermissions?projectId=${projectId}&permissions=ADMINISTER_PROJECTS`);
+
   if (!permissionRes.ok) {
     throw new Error('Yetki doğrulanamadı.');
   }
-  
+
   const permissionsData = await permissionRes.json();
   if (!permissionsData.permissions?.ADMINISTER_PROJECTS?.havePermission) {
     throw new Error('Erişim reddedildi: Ayarları kaydetmek için Proje Yöneticisi (Admin) olmalısınız.');

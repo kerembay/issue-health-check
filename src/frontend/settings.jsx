@@ -41,12 +41,18 @@ const App = () => {
 
     // R5 Gereksinimi: 1-500 ve 1-365 doğrulaması
     if (!Number.isInteger(descLen) || descLen < 1 || descLen > 500) {
-      setStatus({ type: 'error', message: 'Minimum açıklama uzunluğu 1 ile 500 karakter arasında bir tam sayı olmalıdır.' });
+      setStatus({
+        type: 'error',
+        message: 'Minimum açıklama uzunluğu 1 ile 500 karakter arasında bir tam sayı olmalıdır.',
+      });
       return;
     }
 
     if (!Number.isInteger(staleDays) || staleDays < 1 || staleDays > 365) {
-      setStatus({ type: 'error', message: 'Güncellenme sınırı (Stale limit) 1 ile 365 gün arasında bir tam sayı olmalıdır.' });
+      setStatus({
+        type: 'error',
+        message: 'Güncellenme sınırı (Stale limit) 1 ile 365 gün arasında bir tam sayı olmalıdır.',
+      });
       return;
     }
 
@@ -87,52 +93,31 @@ const App = () => {
         <Stack space="space.150">
           <Box>
             <Text weight="bold">Description (Açıklama) Kontrolü</Text>
-            <Toggle
-              isChecked={descriptionEnabled}
-              onChange={(e) => setDescriptionEnabled(e.target.checked)}
-            />
+            <Toggle isChecked={descriptionEnabled} onChange={(e) => setDescriptionEnabled(e.target.checked)} />
             <Text>Minimum Karakter Sayısı (1 - 500):</Text>
-            <Textfield
-              value={minDescriptionLength}
-              onChange={(e) => setMinDescriptionLength(e.target.value)}
-            />
+            <Textfield value={minDescriptionLength} onChange={(e) => setMinDescriptionLength(e.target.value)} />
           </Box>
 
           <Box>
             <Text weight="bold">Assignee (Atanan Kişi) Kontrolü</Text>
-            <Toggle
-              isChecked={assigneeEnabled}
-              onChange={(e) => setAssigneeEnabled(e.target.checked)}
-            />
+            <Toggle isChecked={assigneeEnabled} onChange={(e) => setAssigneeEnabled(e.target.checked)} />
           </Box>
 
           <Box>
             <Text weight="bold">Due Date (Bitiş Tarihi) Kontrolü</Text>
-            <Toggle
-              isChecked={dueDateEnabled}
-              onChange={(e) => setDueDateEnabled(e.target.checked)}
-            />
+            <Toggle isChecked={dueDateEnabled} onChange={(e) => setDueDateEnabled(e.target.checked)} />
           </Box>
 
           <Box>
             <Text weight="bold">Recently Updated Kontrolü</Text>
-            <Toggle
-              isChecked={recentlyUpdatedEnabled}
-              onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)}
-            />
+            <Toggle isChecked={recentlyUpdatedEnabled} onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)} />
             <Text>Kaç gün güncellenmezse uyarı versin? (1 - 365):</Text>
-            <Textfield
-              value={staleLimitDays}
-              onChange={(e) => setStaleLimitDays(e.target.value)}
-            />
+            <Textfield value={staleLimitDays} onChange={(e) => setStaleLimitDays(e.target.value)} />
           </Box>
 
           <Box>
             <Text weight="bold">Labels (Etiket) Kontrolü</Text>
-            <Toggle
-              isChecked={labelsEnabled}
-              onChange={(e) => setLabelsEnabled(e.target.checked)}
-            />
+            <Toggle isChecked={labelsEnabled} onChange={(e) => setLabelsEnabled(e.target.checked)} />
           </Box>
 
           <Button appearance="primary" onClick={handleSave}>

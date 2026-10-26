@@ -111,7 +111,11 @@ export const evaluateIssueHealth = (issueData, settings) => {
       passedChecks++;
       results.push({ name: 'Description', passed: true, message: 'Description meets minimum length.' });
     } else {
-      results.push({ name: 'Description', passed: false, message: `Add at least ${settings.minDescriptionLength} characters to description (currently ${length}).` });
+      results.push({
+        name: 'Description',
+        passed: false,
+        message: `Add at least ${settings.minDescriptionLength} characters to description (currently ${length}).`,
+      });
     }
   }
 
@@ -130,7 +134,7 @@ export const evaluateIssueHealth = (issueData, settings) => {
     if (issueData.dueDate) {
       const due = new Date(issueData.dueDate);
       const now = new Date();
-      now.setHours(0, 0, 0, 0); 
+      now.setHours(0, 0, 0, 0);
       if (due >= now) {
         passedChecks++;
         results.push({ name: 'Due date', passed: true, message: 'Due date is on track.' });
@@ -147,12 +151,16 @@ export const evaluateIssueHealth = (issueData, settings) => {
     const updated = new Date(issueData.updated);
     const now = new Date();
     const diffDays = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays <= settings.staleLimitDays) {
       passedChecks++;
       results.push({ name: 'Recently updated', passed: true, message: 'Issue was updated recently.' });
     } else {
-      results.push({ name: 'Recently updated', passed: false, message: `Issue hasn't been updated in ${diffDays} days (limit is ${settings.staleLimitDays}).` });
+      results.push({
+        name: 'Recently updated',
+        passed: false,
+        message: `Issue hasn't been updated in ${diffDays} days (limit is ${settings.staleLimitDays}).`,
+      });
     }
   }
 
@@ -172,7 +180,7 @@ export const evaluateIssueHealth = (issueData, settings) => {
   }
 
   const score = Math.round((passedChecks / totalEnabled) * 100);
-  
+
   let band = 'At risk';
   if (score >= 80) band = 'Healthy';
   else if (score >= 50) band = 'Need attention';
