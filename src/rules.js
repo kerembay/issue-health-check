@@ -22,8 +22,12 @@ export const extractTextFromAdf = (adf) => {
 };
 
 export const evaluateIssueHealth = (issueData, settings) => {
-  // R3: Görev "Done" statüsündeyse hesaplamayı durdur
-  if (issueData.statusCategory === 'Done' || issueData.statusCategory === 'Bitti' || issueData.statusCategory === 'Tamamlandı') {
+  // R3: Görev "Done" statü kategorisindeyse hesaplamayı durdur.
+  // Jira'da statü kategorisinin "name" alanı site diline göre çevrilir
+  // (ör. "Done", "Bitti", "Tamamlandı"), bu yüzden ad karşılaştırması güvenilir
+  // değildir. "key" alanı ise dilden bağımsızdır ve tamamlanmış statüler için
+  // her zaman 'done' değerini taşır (diğerleri: 'new', 'indeterminate').
+  if (issueData.statusCategoryKey === 'done') {
     return { isDone: true };
   }
 

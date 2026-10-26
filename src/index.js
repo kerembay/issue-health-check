@@ -70,7 +70,9 @@ resolver.define('getIssueHealth', async (req) => {
   const descriptionText = extractTextFromAdf(fields.description);
 
   const issueData = {
-    statusCategory: fields.status?.statusCategory?.name || fields.status?.name || '',
+    // Done tespiti için statü kategorisinin dilden bağımsız "key" alanını kullanıyoruz
+    // ('new' | 'indeterminate' | 'done'). Çevrilebilen "name" alanına güvenmiyoruz.
+    statusCategoryKey: fields.status?.statusCategory?.key || '',
     descriptionText: descriptionText,
     assignee: fields.assignee,
     dueDate: fields.duedate || null,
