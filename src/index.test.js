@@ -162,7 +162,9 @@ describe('saveSettings', () => {
   });
 
   test('Proje yöneticisi olmayan kullanıcıyı reddeder', async () => {
-    mockRequestJira.mockResolvedValue(jsonResponse({ permissions: { ADMINISTER_PROJECTS: { havePermission: false } } }));
+    mockRequestJira.mockResolvedValue(
+      jsonResponse({ permissions: { ADMINISTER_PROJECTS: { havePermission: false } } })
+    );
 
     const result = await handler.saveSettings({ context: projectContext, payload: DEFAULT_SETTINGS });
 
@@ -220,7 +222,9 @@ describe('getIssueHealth', () => {
   };
 
   test("Ayarları issue'nun proje ID anahtarından tek seferde okur", async () => {
-    mockRequestJira.mockResolvedValue(jsonResponse({ fields: { ...issueFields, status: { statusCategory: { key: 'new' } } } }));
+    mockRequestJira.mockResolvedValue(
+      jsonResponse({ fields: { ...issueFields, status: { statusCategory: { key: 'new' } } } })
+    );
     mockKvsGet.mockResolvedValue(undefined);
 
     const result = await handler.getIssueHealth({ context: issueContext });
