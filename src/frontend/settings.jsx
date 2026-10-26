@@ -12,6 +12,7 @@ import ForgeReconciler, {
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
 import { ERROR_CODES } from '../errors.js';
+import { validateSettings } from '../rules.js';
 import { getErrorMessage } from './errorMessages.js';
 
 const App = () => {
@@ -54,36 +55,26 @@ const App = () => {
   const handleSave = async () => {
     setStatus(null);
 
-    const descLen = Number(minDescriptionLength);
-    const staleDays = Number(staleLimitDays);
-
-    // R5 Gereksinimi: 1-500 ve 1-365 doğrulaması. Boş alan Number('') = 0 olduğu
-    // için burada reddedilir. Backend aynı kuralları validateSettings ile tekrar uygular.
-    if (!Number.isInteger(descLen) || descLen < 1 || descLen > 500) {
-      setStatus({
-        type: 'error',
-        message: 'Minimum açıklama uzunluğu 1 ile 500 karakter arasında bir tam sayı olmalıdır.',
-      });
-      return;
-    }
-
-    if (!Number.isInteger(staleDays) || staleDays < 1 || staleDays > 365) {
-      setStatus({
-        type: 'error',
-        message: 'Güncellenme sınırı (Stale limit) 1 ile 365 gün arasında bir tam sayı olmalıdır.',
-      });
-      return;
-    }
-
-    const newSettings = {
+    // Metin kutularındaki değerler string'dir; sayıya çeviriyoruz. Boş alan
+    // Number('') = 0 olur ve bu yüzden aşağıdaki doğrulamada reddedilir.
+    const input = {
       descriptionEnabled,
-      minDescriptionLength: descLen,
+      minDescriptionLength: Number(minDescriptionLength),
       assigneeEnabled,
       dueDateEnabled,
       recentlyUpdatedEnabled,
-      staleLimitDays: staleDays,
+      staleLimitDays: Number(staleLimitDays),
       labelsEnabled,
     };
+
+    // R5: Backend'in kullandığı validateSettings fonksiyonunun aynısını burada da
+    // çalıştırıyoruz; böylece iki tarafın kuralları (1-500, 1-365) hiçbir zaman
+    // birbirinden ayrışmaz. Geçersizse hiçbir şey kaydetmeden hataları gösteririz.
+    const { valid, errors, settings: newSettings } = validateSettings(input);
+    if (!valid) {
+      setStatus({ type: 'error', message: errors.join(' ') });
+      return;
+    }
 
     // Kaydetme sürerken buton "yükleniyor" durumunda kalır; böylece art arda
     // tıklamalar birden fazla kayıt isteği göndermez.
