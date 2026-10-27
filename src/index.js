@@ -6,28 +6,56 @@ import { evaluateIssueHealth, extractTextFromAdf, validateSettings, DEFAULT_SETT
 const kvs = kvsNamed || kvsDefault;
 const resolver = new Resolver();
 
-const getProjectKeyOrId = (req) => {
-  return (
-    req.context?.extension?.project?.id ||
-    req.context?.extension?.project?.key ||
-    req.context?.extension?.issue?.project?.id ||
-    req.context?.extension?.issue?.project?.key
-  );
+// Ayarlar her proje için KVS'de tek bir anahtarda tutulur: `settings-<projectId>`.
+// Proje anahtarı (ör. "ABC") yerine sayısal proje ID'sini kullanıyoruz çünkü
+// anahtar proje yeniden adlandırılınca değişebilir, ID ise hiç değişmez.
+const settingsStorageKey = (projectId) => `settings-${projectId}`;
+
+// Ayarların hangi projeye ait olduğunu belirlemek için proje ID'sini bulur.
+// 1. Forge context'i proje ID'sini veriyorsa (ör. jira:projectSettingsPage
+//    context.extension.project.id) doğrudan onu kullanırız.
+// 2. Context'te sadece proje anahtarı (key, ör. "ABC") varsa ID'yi Jira'dan
+//    GET /rest/api/3/project/{key} ile çözeriz. İstek .asUser() ile yapıldığı
+//    için kullanıcının göremediği bir projenin ID'si de çözülemez.
+// 3. İkisi de yoksa null döner; çağıran taraf ne yapacağına kendisi karar verir.
+// Çözümleme başarısız olursa hata fırlatırız: sessizce varsayılan ayarlara
+// düşmek, yöneticinin yanlışlıkla kayıtlı ayarların üzerine yazmasına yol açabilir.
+const resolveProjectId = async (req) => {
+  const project = req.context?.extension?.project;
+  if (project?.id) return project.id;
+  if (!project?.key) return null;
+
+  const response = await api.asUser().requestJira(route`/rest/api/3/project/${project.key}`);
+  if (!response.ok) {
+    throw new Error(`Proje ID'si çözümlenemedi (${project.key}): ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data?.id) {
+    throw new Error(`Proje ID'si çözümlenemedi (${project.key}): yanıtta id yok.`);
+  }
+  return data.id;
+};
+
+// Bir projenin kayıtlı ayarlarını okur. Hiç kayıt yoksa varsayılanları döner;
+// kayıt varsa varsayılanlarla birleştiririz ki sonradan eklenen yeni ayar
+// alanları eski kayıtlarda da bir değere sahip olsun.
+const loadSettings = async (projectId) => {
+  const savedSettings = await kvs.get(settingsStorageKey(projectId));
+  return savedSettings ? { ...DEFAULT_SETTINGS, ...savedSettings } : DEFAULT_SETTINGS;
 };
 
 resolver.define('getSettings', async (req) => {
-  const projectId = getProjectKeyOrId(req);
+  const projectId = await resolveProjectId(req);
   if (!projectId) return DEFAULT_SETTINGS;
 
-  const savedSettings = await kvs.get(`settings-${projectId}`);
-  return savedSettings ? { ...DEFAULT_SETTINGS, ...savedSettings } : DEFAULT_SETTINGS;
+  return loadSettings(projectId);
 });
 
 resolver.define('saveSettings', async (req) => {
-  const projectId = getProjectKeyOrId(req);
-  const projectKey = req.context?.extension?.project?.key;
+  const projectId = await resolveProjectId(req);
 
-  if (!projectId) throw new Error('Project ID not found in context.');
+  if (!projectId) throw new Error('Project ID or key not found in context.');
 
   // R9: Güvenlik Kontrolü - Kullanıcının "ADMINISTER_PROJECTS" yetkisi var mı?
   const permissionRes = await api.asUser().requestJira(
@@ -50,11 +78,8 @@ resolver.define('saveSettings', async (req) => {
     throw new Error(`Geçersiz ayarlar: ${errors.join(' ')}`);
   }
 
-  await kvs.set(`settings-${projectId}`, newSettings);
-  if (projectKey && projectKey !== projectId) {
-    await kvs.set(`settings-${projectKey}`, newSettings);
-  }
-  
+  await kvs.set(settingsStorageKey(projectId), newSettings);
+
   return true;
 });
 
@@ -85,16 +110,11 @@ resolver.define('getIssueHealth', async (req) => {
     labels: fields.labels || [],
   };
 
-  const apiProjectId = fields.project?.id;
-  const apiProjectKey = fields.project?.key;
-  const contextProjectId = getProjectKeyOrId(req);
-
-  let savedSettings = null;
-  if (apiProjectId) savedSettings = await kvs.get(`settings-${apiProjectId}`);
-  if (!savedSettings && apiProjectKey) savedSettings = await kvs.get(`settings-${apiProjectKey}`);
-  if (!savedSettings && contextProjectId) savedSettings = await kvs.get(`settings-${contextProjectId}`);
-
-  const currentSettings = savedSettings ? { ...DEFAULT_SETTINGS, ...savedSettings } : DEFAULT_SETTINGS;
+  // Proje ID'sini Jira'nın döndürdüğü issue verisinden alıyoruz; bu, issue'nun
+  // gerçekten ait olduğu projedir. Yanıtta yoksa context'ten çözmeyi deneriz;
+  // o da yoksa varsayılan ayarlar kullanılır.
+  const projectId = fields.project?.id || (await resolveProjectId(req));
+  const currentSettings = projectId ? await loadSettings(projectId) : DEFAULT_SETTINGS;
 
   return evaluateIssueHealth(issueData, currentSettings);
 });
