@@ -40,7 +40,7 @@ score = round(passed checks / enabled checks * 100)
 
 ### Special cases
 
-- If the issue status category is `Done` (also matched as `Bitti` or `Tamamlandı` for Turkish-language sites), no score is calculated and the panel shows a "Done" message.
+- If the issue's status category key is `done`, no score is calculated and the panel shows a "Done" message. The language-independent `statusCategory.key` is used instead of the translated category name, so this works on sites in any language.
 - If all checks are disabled in the project settings, the panel shows that no checks are enabled.
 
 ## Configuration

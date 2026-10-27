@@ -3,7 +3,7 @@ import { evaluateIssueHealth, DEFAULT_SETTINGS, extractTextFromAdf } from './rul
 describe('Issue Health Check Rules Engine', () => {
   // Testlerde kullanacağımız, tüm kuralları geçen kusursuz bir örnek görev
   const perfectIssue = {
-    statusCategory: 'In Progress',
+    statusCategoryKey: 'indeterminate',
     descriptionText: 'Bu açıklama otuz karakterden kesinlikle daha uzundur.', // 53 karakter
     assignee: { accountId: '123' },
     dueDate: new Date(Date.now() + 86400000).toISOString(), // Yarının tarihi
@@ -11,10 +11,25 @@ describe('Issue Health Check Rules Engine', () => {
     labels: ['test-label']
   };
 
-  test('Uç Durum (R3): Görev "Done" statüsündeyse isDone döner', () => {
-    const doneIssue = { ...perfectIssue, statusCategory: 'Done' };
+  test('Uç Durum (R3): Statü kategorisi key değeri "done" ise isDone döner', () => {
+    const doneIssue = { ...perfectIssue, statusCategoryKey: 'done' };
     const result = evaluateIssueHealth(doneIssue, DEFAULT_SETTINGS);
     expect(result.isDone).toBe(true);
+  });
+
+  test('Uç Durum (R3): "new" ve "indeterminate" kategorileri Done sayılmaz', () => {
+    for (const key of ['new', 'indeterminate', '']) {
+      const issue = { ...perfectIssue, statusCategoryKey: key };
+      const result = evaluateIssueHealth(issue, DEFAULT_SETTINGS);
+      expect(result.isDone).toBeUndefined();
+      expect(result.score).toBe(100);
+    }
+  });
+
+  test('Uç Durum (R3): Done tespiti çevrilmiş statü adlarına bakmaz', () => {
+    // Eski davranışta ad karşılaştırması yapılıyordu; artık sadece key önemli.
+    const issue = { ...perfectIssue, statusCategory: 'Done', statusCategoryKey: 'indeterminate' };
+    expect(evaluateIssueHealth(issue, DEFAULT_SETTINGS).isDone).toBeUndefined();
   });
 
   test('Uç Durum (R3): Tüm ayarlar kapalıysa noChecksEnabled döner', () => {
