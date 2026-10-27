@@ -8,7 +8,7 @@ describe('Issue Health Check Rules Engine', () => {
     assignee: { accountId: '123' },
     dueDate: new Date(Date.now() + 86400000).toISOString(), // Yarının tarihi
     updated: new Date().toISOString(), // Bugün güncellenmiş
-    labels: ['test-label']
+    labels: ['test-label'],
   };
 
   test('Uç Durum (R3): Statü kategorisi key değeri "done" ise isDone döner', () => {
@@ -81,33 +81,41 @@ describe('Issue Health Check Rules Engine', () => {
 
   test('Geçmiş ve bugünkü due date kontrolleri', () => {
     const pastIssue = { ...perfectIssue, dueDate: new Date(Date.now() - 86400000).toISOString() };
-    expect(evaluateIssueHealth(pastIssue, DEFAULT_SETTINGS).results.find(r => r.name === 'Due date').passed).toBe(false);
+    expect(evaluateIssueHealth(pastIssue, DEFAULT_SETTINGS).results.find((r) => r.name === 'Due date').passed).toBe(
+      false
+    );
 
     const todayIssue = { ...perfectIssue, dueDate: new Date().toISOString() };
-    expect(evaluateIssueHealth(todayIssue, DEFAULT_SETTINGS).results.find(r => r.name === 'Due date').passed).toBe(true);
+    expect(evaluateIssueHealth(todayIssue, DEFAULT_SETTINGS).results.find((r) => r.name === 'Due date').passed).toBe(
+      true
+    );
   });
 
   test('Bayat (stale) issue kontrolü', () => {
     const staleIssue = { ...perfectIssue, updated: new Date(Date.now() - 15 * 86400000).toISOString() }; // 15 gün önce
-    expect(evaluateIssueHealth(staleIssue, DEFAULT_SETTINGS).results.find(r => r.name === 'Recently updated').passed).toBe(false);
+    expect(
+      evaluateIssueHealth(staleIssue, DEFAULT_SETTINGS).results.find((r) => r.name === 'Recently updated').passed
+    ).toBe(false);
   });
 
   test('Labels (etiketler) açıkken kontrol', () => {
     const settings = { ...DEFAULT_SETTINGS, labelsEnabled: true };
-    expect(evaluateIssueHealth(perfectIssue, settings).results.find(r => r.name === 'Labels').passed).toBe(true);
+    expect(evaluateIssueHealth(perfectIssue, settings).results.find((r) => r.name === 'Labels').passed).toBe(true);
 
     const noLabelIssue = { ...perfectIssue, labels: [] };
-    expect(evaluateIssueHealth(noLabelIssue, settings).results.find(r => r.name === 'Labels').passed).toBe(false);
+    expect(evaluateIssueHealth(noLabelIssue, settings).results.find((r) => r.name === 'Labels').passed).toBe(false);
   });
 
   test('Açıklama uzunluğu sınırı kontrolü', () => {
     const customSettings = { ...DEFAULT_SETTINGS, minDescriptionLength: 100 };
-    expect(evaluateIssueHealth(perfectIssue, customSettings).results.find(r => r.name === 'Description').passed).toBe(false);
+    expect(evaluateIssueHealth(perfectIssue, customSettings).results.find((r) => r.name === 'Description').passed).toBe(
+      false
+    );
   });
 
   test('Açıklama kontrolü: sadece boşluktan oluşan açıklama geçmez', () => {
     const blankIssue = { ...perfectIssue, descriptionText: ' '.repeat(40) + '\n\t\n' };
-    const result = evaluateIssueHealth(blankIssue, DEFAULT_SETTINGS).results.find(r => r.name === 'Description');
+    const result = evaluateIssueHealth(blankIssue, DEFAULT_SETTINGS).results.find((r) => r.name === 'Description');
     expect(result.passed).toBe(false);
     expect(result.message).toContain('currently 0');
   });
@@ -115,24 +123,27 @@ describe('Issue Health Check Rules Engine', () => {
   test('Açıklama kontrolü: baş/son boşluklar uzunluğa sayılmaz', () => {
     // 29 anlamlı karakter + boşluklar: ham uzunluk 30'u geçse de kontrol başarısız olmalı
     const padded = { ...perfectIssue, descriptionText: '   ' + 'a'.repeat(29) + '   ' };
-    expect(evaluateIssueHealth(padded, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(false);
+    expect(evaluateIssueHealth(padded, DEFAULT_SETTINGS).results.find((r) => r.name === 'Description').passed).toBe(
+      false
+    );
 
     // Tam 30 anlamlı karakter: sınırda geçer (aradaki boşluklar sayılır)
     const exact = { ...perfectIssue, descriptionText: '  ' + 'a'.repeat(14) + '  ' + 'b'.repeat(14) + '  ' };
-    expect(evaluateIssueHealth(exact, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(true);
+    expect(evaluateIssueHealth(exact, DEFAULT_SETTINGS).results.find((r) => r.name === 'Description').passed).toBe(
+      true
+    );
   });
 
   test('Açıklama kontrolü: açıklama hiç yoksa (undefined) hata vermeden başarısız olur', () => {
     const noDesc = { ...perfectIssue, descriptionText: undefined };
-    expect(evaluateIssueHealth(noDesc, DEFAULT_SETTINGS).results.find(r => r.name === 'Description').passed).toBe(false);
+    expect(evaluateIssueHealth(noDesc, DEFAULT_SETTINGS).results.find((r) => r.name === 'Description').passed).toBe(
+      false
+    );
   });
 
   test('ADF metin çıkarma (extractTextFromAdf)', () => {
     const adf = {
-      content: [
-        { type: 'text', text: 'Hello ' },
-        { content: [{ type: 'text', text: 'World' }] }
-      ]
+      content: [{ type: 'text', text: 'Hello ' }, { content: [{ type: 'text', text: 'World' }] }],
     };
     expect(extractTextFromAdf(adf)).toBe('Hello World');
     expect(extractTextFromAdf(null)).toBe('');
@@ -141,7 +152,10 @@ describe('Issue Health Check Rules Engine', () => {
   test('ADF metin çıkarma: metinsiz düğümler (ör. hardBreak) atlanır', () => {
     const adf = {
       content: [
-        { type: 'paragraph', content: [{ type: 'text', text: 'Satır 1' }, { type: 'hardBreak' }, { type: 'text', text: 'Satır 2' }] },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Satır 1' }, { type: 'hardBreak' }, { type: 'text', text: 'Satır 2' }],
+        },
         { type: 'rule' },
       ],
     };

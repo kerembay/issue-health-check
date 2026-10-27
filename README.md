@@ -10,7 +10,7 @@ Issues that have no description, no assignee, no due date, or that have not been
 
 - **Issue panel** that shows the health score, a colored band (`Healthy`, `Need attention`, `At risk`), and one line per active check.
 - **Five configurable checks**: description length, assignee, due date, recently updated, and labels.
-- **Per-project settings page** under *Project settings → Health Check Settings*, so each project can have its own rules.
+- **Per-project settings page** under _Project settings → Health Check Settings_, so each project can have its own rules.
 - **Admin-only saving**: the settings can only be saved by users who have the `ADMINISTER_PROJECTS` permission in that project.
 - **Sensible edge cases**: completed issues are skipped, and if every check is turned off the panel says so instead of showing a meaningless score.
 
@@ -22,21 +22,21 @@ Only the checks that are enabled count. The score is the percentage of enabled c
 score = round(passed checks / enabled checks * 100)
 ```
 
-| Score | Band |
-| --- | --- |
-| 80 – 100 | Healthy |
-| 50 – 79 | Need attention |
-| 0 – 49 | At risk |
+| Score    | Band           |
+| -------- | -------------- |
+| 80 – 100 | Healthy        |
+| 50 – 79  | Need attention |
+| 0 – 49   | At risk        |
 
 ### Checks
 
-| Check | Passes when | Default |
-| --- | --- | --- |
-| Description | The description text has at least *N* characters (default 30). The Atlassian Document Format (ADF) description is flattened to plain text before counting. | On |
-| Assignee | The issue has an assignee. | On |
-| Due date | A due date is set and it is today or later. | On |
-| Recently updated | The issue was updated within the last *N* days (default 14). | On |
-| Labels | The issue has at least one label. | Off |
+| Check            | Passes when                                                                                                                                                | Default |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Description      | The description text has at least _N_ characters (default 30). The Atlassian Document Format (ADF) description is flattened to plain text before counting. | On      |
+| Assignee         | The issue has an assignee.                                                                                                                                 | On      |
+| Due date         | A due date is set and it is today or later.                                                                                                                | On      |
+| Recently updated | The issue was updated within the last _N_ days (default 14).                                                                                               | On      |
+| Labels           | The issue has at least one label.                                                                                                                          | Off     |
 
 ### Special cases
 
@@ -86,6 +86,7 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 ├── package.json
 ├── babel.config.json       # Lets Jest understand ES modules
 ├── .eslintrc
+├── .prettierrc
 └── src
     ├── index.js            # Resolver: getIssueHealth, getSettings, saveSettings
     ├── rules.js            # Default settings and the health scoring logic
@@ -101,16 +102,16 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 - Atlassian Forge, runtime `nodejs24.x`
 - Forge UI Kit (`@forge/react`) with native rendering
 - `@forge/resolver`, `@forge/bridge`, `@forge/api`, `@forge/kvs`
-- Jest for tests, ESLint for linting
+- Jest for tests, ESLint for linting, Prettier for formatting
 
 ## Permissions
 
 The app requests only two scopes, declared in `manifest.yml`:
 
-| Scope | Used for |
-| --- | --- |
-| `read:jira-work` | Reading the issue fields needed for the checks |
-| `storage:app` | Reading and writing per-project settings in Forge storage |
+| Scope            | Used for                                                  |
+| ---------------- | --------------------------------------------------------- |
+| `read:jira-work` | Reading the issue fields needed for the checks            |
+| `storage:app`    | Reading and writing per-project settings in Forge storage |
 
 ## Getting started
 
@@ -156,11 +157,12 @@ For live development, run `forge tunnel`. Code changes are hot reloaded, but cha
 
 ```bash
 npm test          # run the Jest tests
-npm run lint      # lint the source files
-npm run lint:fix  # lint and auto-fix
+npm run lint      # eslint src --ext .js,.jsx + Prettier check (fails on any problem)
+npm run lint:fix  # ESLint auto-fix + Prettier write
+npm run format    # format all files with Prettier
 ```
 
-The tests in `src/rules.test.js` cover the done-status case, the all-checks-disabled case, a fully healthy issue (100, `Healthy`), and an issue that fails most checks (25, `At risk`).
+`src/rules.test.js` covers every check (including the description length limit), past and today's due dates, stale issues, labels, the score band boundaries (80 and 50), key-based Done detection, `DEFAULT_SETTINGS`, `validateSettings` and ADF text extraction. `src/index.test.js` tests the resolvers with mocked Forge modules (single `settings-<projectId>` KVS key, permission check, validation). Run `npx jest --coverage` to see coverage.
 
 To see runtime errors from a deployed app, use `forge logs -e development`.
 

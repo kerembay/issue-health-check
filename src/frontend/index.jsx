@@ -45,10 +45,14 @@ const App = () => {
 
   const getBandColor = (band) => {
     switch (band) {
-      case 'Healthy': return 'green';
-      case 'Need attention': return 'yellow';
-      case 'At risk': return 'red';
-      default: return 'standard';
+      case 'Healthy':
+        return 'green';
+      case 'Need attention':
+        return 'yellow';
+      case 'At risk':
+        return 'red';
+      default:
+        return 'standard';
     }
   };
 
@@ -57,7 +61,7 @@ const App = () => {
       <Stack space="space.100">
         <Text>Sağlık Puanı: {healthData.score}/100</Text>
         <Tag text={healthData.band} color={getBandColor(healthData.band)} />
-        
+
         <Stack space="space.050">
           {healthData.results.map((result, index) => (
             <Text key={index}>
