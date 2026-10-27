@@ -1,14 +1,15 @@
 modules:
+  # Issue paneli: her issue'da sağlık puanını, bandı ve kontrol sonuçlarını gösterir.
   jira:issuePanel:
-    - key: issue-health-check-hello-world-issue-panel
-      resource: main
+    - key: issue-health-check-panel
+      resource: issue-panel
       resolver:
         function: resolver
       render: native
-      title: issue-health-check
+      title: Issue Health Check
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
 
-  # YENİ EKLENEN KISIM: Proje Ayarları Sayfası
+  # Proje ayarları sayfası: proje yöneticileri kontrolleri açıp kapatır ve sınırları belirler.
   jira:projectSettingsPage:
     - key: issue-health-check-settings
       resource: settings-page
@@ -17,14 +18,14 @@ modules:
       render: native
       title: Health Check Settings
 
+  # Her iki ekranın da çağırdığı backend fonksiyonu (src/index.js içindeki resolver'lar).
   function:
     - key: resolver
       handler: index.handler
 
 resources:
-  - key: main
+  - key: issue-panel
     path: src/frontend/index.jsx
-  # YENİ EKLENEN KISIM: Ayar sayfasının arayüz dosyası
   - key: settings-page
     path: src/frontend/settings.jsx
 
@@ -37,6 +38,7 @@ app:
 
 permissions:
   scopes:
+    # Jira REST API'sini kullanıcı adına okumak için (issue, mypermissions, project).
     - read:jira-work
-    # YENİ EKLENEN KISIM: Forge veritabanına yazma/okuma izni
+    # Proje ayarlarını Forge Key-Value Storage'da saklamak için.
     - storage:app

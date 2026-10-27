@@ -15,6 +15,19 @@ export const SETTINGS_LIMITS = {
   staleLimitDays: { min: 1, max: 365 },
 };
 
+// Hata mesajlarında alan adı (ör. "minDescriptionLength") yerine kullanıcının
+// ayarlar sayfasında gördüğü okunabilir adı gösteriyoruz. Mesajlar hem backend
+// yanıtında hem de ayarlar sayfasında aynen kullanıcıya gösterilir.
+export const SETTING_LABELS = {
+  descriptionEnabled: 'Description check',
+  minDescriptionLength: 'Minimum description length',
+  assigneeEnabled: 'Assignee check',
+  dueDateEnabled: 'Due date check',
+  recentlyUpdatedEnabled: 'Recently updated check',
+  staleLimitDays: 'Stale limit (days)',
+  labelsEnabled: 'Labels check',
+};
+
 // Açık/kapalı (boolean) olması gereken ayar alanları.
 const BOOLEAN_SETTINGS = [
   'descriptionEnabled',
@@ -42,7 +55,7 @@ const BOOLEAN_SETTINGS = [
  */
 export const validateSettings = (input) => {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    return { valid: false, errors: ['Ayarlar bir nesne olmalıdır.'], settings: null };
+    return { valid: false, errors: ['Settings must be an object.'], settings: null };
   }
 
   const errors = [];
@@ -52,7 +65,7 @@ export const validateSettings = (input) => {
   for (const key of BOOLEAN_SETTINGS) {
     if (input[key] === undefined) continue;
     if (typeof input[key] !== 'boolean') {
-      errors.push(`${key} true veya false olmalıdır.`);
+      errors.push(`${SETTING_LABELS[key]} must be turned on or off.`);
     } else {
       settings[key] = input[key];
     }
@@ -63,7 +76,7 @@ export const validateSettings = (input) => {
     const value = input[key];
     // Number.isInteger, string ("30"), NaN, Infinity ve ondalıklı sayıları reddeder.
     if (!Number.isInteger(value) || value < min || value > max) {
-      errors.push(`${key} ${min} ile ${max} arasında bir tam sayı olmalıdır.`);
+      errors.push(`${SETTING_LABELS[key]} must be a whole number from ${min} to ${max}.`);
     } else {
       settings[key] = value;
     }
@@ -88,13 +101,17 @@ export const extractTextFromAdf = (adf) => {
   return text;
 };
 
+// R3: Issue "Done" statü kategorisinde mi?
+// Jira'da statü kategorisinin "name" alanı site diline göre çevrilir
+// (ör. "Done", "Bitti", "Tamamlandı"), bu yüzden ad karşılaştırması güvenilir
+// değildir. "key" alanı ise dilden bağımsızdır ve tamamlanmış statüler için
+// her zaman 'done' değerini taşır (diğerleri: 'new', 'indeterminate').
+// Resolver da bunu kullanır: Done issue için ayarları okumaya gerek yoktur.
+export const isDoneStatus = (statusCategoryKey) => statusCategoryKey === 'done';
+
 export const evaluateIssueHealth = (issueData, settings) => {
-  // R3: Görev "Done" statü kategorisindeyse hesaplamayı durdur.
-  // Jira'da statü kategorisinin "name" alanı site diline göre çevrilir
-  // (ör. "Done", "Bitti", "Tamamlandı"), bu yüzden ad karşılaştırması güvenilir
-  // değildir. "key" alanı ise dilden bağımsızdır ve tamamlanmış statüler için
-  // her zaman 'done' değerini taşır (diğerleri: 'new', 'indeterminate').
-  if (issueData.statusCategoryKey === 'done') {
+  // R3: Görev Done ise hesaplamayı durdur.
+  if (isDoneStatus(issueData.statusCategoryKey)) {
     return { isDone: true };
   }
 

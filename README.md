@@ -51,7 +51,7 @@ Open a project in Jira and go to **Project settings → Health Check Settings**.
 - set the minimum description length (an integer from 1 to 500),
 - set the stale limit in days for the "recently updated" check (an integer from 1 to 365).
 
-Values outside these ranges are rejected by the settings page before saving, and again on the server by `validateSettings` in `src/rules.js` (the `saveSettings` resolver refuses invalid payloads and stores only known fields). Settings are stored per project in Forge Key-Value Storage under a single key, `settings-<projectId>`. The numeric project ID is used rather than the project key because the key can change when a project is renamed. If the Forge context only provides a project key, the resolver looks up the ID with `GET /rest/api/3/project/{key}` (as the current user) and fails instead of falling back to defaults when the lookup fails. Projects that have never saved settings use the defaults.
+Empty or out-of-range values are rejected before anything is saved. The settings page and the `saveSettings` resolver both run the same `validateSettings` function from `src/rules.js`, and the resolver stores only known fields. Settings are stored per project in Forge Key-Value Storage under a single key, `settings-<projectId>`. The numeric project ID is used rather than the project key because the key can change when a project is renamed. If the Forge context only provides a project key, the resolver looks up the ID with `GET /rest/api/3/project/{key}` (as the current user) and fails instead of falling back to defaults when the lookup fails. Projects that have never saved settings use the defaults.
 
 ## Architecture
 
@@ -171,7 +171,7 @@ For live development, run `forge tunnel`. Code changes are hot reloaded, but cha
 
 ### Using the app
 
-1. Open any issue in a project where the app is installed. The **issue-health-check** panel shows the score.
+1. Open any issue in a project where the app is installed. Add the **Issue Health Check** panel from the issue's apps menu; it shows the score.
 2. Open **Project settings → Health Check Settings** to change which checks are active.
 
 ## Development
@@ -196,14 +196,15 @@ To see runtime errors from a deployed app, use `forge logs -e development`.
 - **Logic in the resolver, rules as pure functions.** The UI only calls resolvers. The resolver does the Jira calls, permission check and storage, and `src/rules.js` has no Forge imports so it can be unit tested with plain Jest.
 - **`asUser()` everywhere.** Every Jira call runs as the current user, so people only see what Jira already lets them see. There is no `asApp()` because every request has a user.
 - **Backend admin check.** Jira only shows the settings page to project admins, but a resolver can be invoked directly, so `saveSettings` checks `ADMINISTER_PROJECTS` itself.
-- **Validation on both sides.** The settings page validates for quick feedback; `validateSettings` validates again on the backend and stores only known fields.
+- **Validation on both sides, one rule set.** The settings page runs `validateSettings` for quick feedback and the backend runs the same function again, so the limits can never drift apart.
+- **English UI.** All user-facing text is in English to match the check names, bands and this README.
+- **Done issues skip storage.** The resolver returns `isDone` before reading settings, since Done issues never get a score.
 - **One storage key per project, by ID.** `settings-<projectId>` is used because project keys can change. Saved settings are merged with the defaults on read, so settings added later get a value for old projects.
 - **Done detection by status category key.** `statusCategory.key === 'done'` works on sites in every language, unlike the translated category name.
 - **Coded results instead of exceptions.** See [Error handling](#error-handling).
 
 ## Notes and limitations
 
-- The user interface text is currently in Turkish, while the check messages returned by the rules engine are in English.
 - Dates are evaluated in the Forge runtime's time zone, which is UTC. The due date check passes until the end of the due date in UTC, and the "recently updated" check counts whole days since the last update. Users far from UTC may see a due date flip a few hours before or after their local midnight.
 - The panel calculates the score when it loads. After editing an issue, reload the page to see the new result.
 - Checks are fixed to the five listed above. Adding a new check means adding a setting to `DEFAULT_SETTINGS`, a branch in `evaluateIssueHealth`, and a control on the settings page.

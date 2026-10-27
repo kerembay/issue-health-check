@@ -3,14 +3,14 @@ import { ERROR_CODES } from '../errors.js';
 // Resolver'ların döndürdüğü hata kodlarını kullanıcıya gösterilecek anlaşılır
 // mesajlara çevirir. Hem issue paneli hem de ayarlar sayfası bu dosyayı kullanır.
 const MESSAGES = {
-  [ERROR_CODES.NO_ISSUE_CONTEXT]: 'Bu panel sadece bir issue içinde çalışır.',
-  [ERROR_CODES.NO_PROJECT_CONTEXT]: 'Proje bilgisi alınamadı. Sayfayı yenileyip tekrar deneyin.',
-  [ERROR_CODES.NO_PERMISSION]: 'Bu veriyi görüntülemek için izniniz yok.',
-  [ERROR_CODES.NOT_FOUND]: 'Issue veya proje bulunamadı ya da görüntüleme izniniz yok.',
-  [ERROR_CODES.JIRA_ERROR]: 'Jira şu anda yanıt veremedi. Biraz sonra tekrar deneyin.',
-  [ERROR_CODES.NOT_PROJECT_ADMIN]: 'Ayarları kaydetmek için proje yöneticisi olmalısınız.',
-  [ERROR_CODES.INVALID_SETTINGS]: 'Ayarlar geçersiz olduğu için kaydedilmedi.',
-  [ERROR_CODES.UNEXPECTED]: 'Beklenmeyen bir hata oluştu. Sayfayı yenileyip tekrar deneyin.',
+  [ERROR_CODES.NO_ISSUE_CONTEXT]: 'This panel only works on an issue.',
+  [ERROR_CODES.NO_PROJECT_CONTEXT]: "Couldn't find the project. Reload the page and try again.",
+  [ERROR_CODES.NO_PERMISSION]: "You don't have permission to view this data.",
+  [ERROR_CODES.NOT_FOUND]: "The issue or project wasn't found, or you don't have permission to view it.",
+  [ERROR_CODES.JIRA_ERROR]: "Jira couldn't respond right now. Try again in a moment.",
+  [ERROR_CODES.NOT_PROJECT_ADMIN]: 'You must be a project admin to save these settings.',
+  [ERROR_CODES.INVALID_SETTINGS]: 'The settings are not valid, so nothing was saved.',
+  [ERROR_CODES.UNEXPECTED]: 'Something went wrong. Reload the page and try again.',
 };
 
 // error: resolver yanıtındaki { code, details? } nesnesi. Bilinmeyen veya eksik

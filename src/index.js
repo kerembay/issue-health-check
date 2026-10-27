@@ -1,10 +1,9 @@
 import Resolver from '@forge/resolver';
 import api, { route } from '@forge/api';
-import kvsDefault, { kvs as kvsNamed } from '@forge/kvs';
-import { evaluateIssueHealth, extractTextFromAdf, validateSettings, DEFAULT_SETTINGS } from './rules.js';
+import { kvs } from '@forge/kvs';
+import { evaluateIssueHealth, extractTextFromAdf, isDoneStatus, validateSettings, DEFAULT_SETTINGS } from './rules.js';
 import { ERROR_CODES } from './errors.js';
 
-const kvs = kvsNamed || kvsDefault;
 const resolver = new Resolver();
 
 // --- Sonuç biçimi ve hata yönetimi -------------------------------------------
@@ -153,6 +152,12 @@ defineResolver('getIssueHealth', async (req) => {
     updated: fields.updated,
     labels: fields.labels || [],
   };
+
+  // Done issue'larda skor hesaplanmaz; bu yüzden KVS'den ayar okumadan hemen
+  // dönüyoruz (gereksiz depolama okumasından kaçınmak için).
+  if (isDoneStatus(issueData.statusCategoryKey)) {
+    return { isDone: true };
+  }
 
   // Proje ID'sini Jira'nın döndürdüğü issue verisinden alıyoruz; bu, issue'nun
   // gerçekten ait olduğu projedir. Yanıtta yoksa context'ten çözmeyi deneriz;

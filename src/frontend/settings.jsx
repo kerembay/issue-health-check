@@ -12,6 +12,7 @@ import ForgeReconciler, {
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
 import { ERROR_CODES } from '../errors.js';
+import { validateSettings } from '../rules.js';
 import { getErrorMessage } from './errorMessages.js';
 
 const App = () => {
@@ -54,36 +55,26 @@ const App = () => {
   const handleSave = async () => {
     setStatus(null);
 
-    const descLen = Number(minDescriptionLength);
-    const staleDays = Number(staleLimitDays);
-
-    // R5 Gereksinimi: 1-500 ve 1-365 doğrulaması. Boş alan Number('') = 0 olduğu
-    // için burada reddedilir. Backend aynı kuralları validateSettings ile tekrar uygular.
-    if (!Number.isInteger(descLen) || descLen < 1 || descLen > 500) {
-      setStatus({
-        type: 'error',
-        message: 'Minimum açıklama uzunluğu 1 ile 500 karakter arasında bir tam sayı olmalıdır.',
-      });
-      return;
-    }
-
-    if (!Number.isInteger(staleDays) || staleDays < 1 || staleDays > 365) {
-      setStatus({
-        type: 'error',
-        message: 'Güncellenme sınırı (Stale limit) 1 ile 365 gün arasında bir tam sayı olmalıdır.',
-      });
-      return;
-    }
-
-    const newSettings = {
+    // Metin kutularındaki değerler string'dir; sayıya çeviriyoruz. Boş alan
+    // Number('') = 0 olur ve bu yüzden aşağıdaki doğrulamada reddedilir.
+    const input = {
       descriptionEnabled,
-      minDescriptionLength: descLen,
+      minDescriptionLength: Number(minDescriptionLength),
       assigneeEnabled,
       dueDateEnabled,
       recentlyUpdatedEnabled,
-      staleLimitDays: staleDays,
+      staleLimitDays: Number(staleLimitDays),
       labelsEnabled,
     };
+
+    // R5: Backend'in kullandığı validateSettings fonksiyonunun aynısını burada da
+    // çalıştırıyoruz; böylece iki tarafın kuralları (1-500, 1-365) hiçbir zaman
+    // birbirinden ayrışmaz. Geçersizse hiçbir şey kaydetmeden hataları gösteririz.
+    const { valid, errors, settings: newSettings } = validateSettings(input);
+    if (!valid) {
+      setStatus({ type: 'error', message: errors.join(' ') });
+      return;
+    }
 
     // Kaydetme sürerken buton "yükleniyor" durumunda kalır; böylece art arda
     // tıklamalar birden fazla kayıt isteği göndermez.
@@ -91,7 +82,7 @@ const App = () => {
     try {
       const result = await invoke('saveSettings', newSettings);
       if (result?.ok) {
-        setStatus({ type: 'success', message: 'Proje ayarları başarıyla kaydedildi!' });
+        setStatus({ type: 'success', message: 'Settings saved.' });
       } else if (result?.error?.code === ERROR_CODES.INVALID_SETTINGS && result.error.details?.length) {
         // Backend doğrulamasının ayrıntılı hatalarını da gösteriyoruz.
         setStatus({ type: 'error', message: `${getErrorMessage(result.error)} ${result.error.details.join(' ')}` });
@@ -106,13 +97,13 @@ const App = () => {
   };
 
   if (loading) {
-    return <Spinner size="medium" label="Ayarlar yükleniyor" />;
+    return <Spinner size="medium" label="Loading settings" />;
   }
 
   if (loadError) {
     return (
-      <SectionMessage appearance="error" title="Ayarlar yüklenemedi">
-        <Text>{loadError} Ayarlar yüklenmeden kaydetme yapılamaz.</Text>
+      <SectionMessage appearance="error" title="Couldn't load settings">
+        <Text>{loadError} Settings can't be saved until they load.</Text>
       </SectionMessage>
     );
   }
@@ -120,7 +111,7 @@ const App = () => {
   return (
     <Box padding="space.100">
       <Stack space="space.200">
-        <Text>Bu projedeki görevlerin sağlık durumu için kuralları belirleyin.</Text>
+        <Text>Choose which health checks count in this project and set their limits.</Text>
 
         {status && (
           <SectionMessage appearance={status.type}>
@@ -130,13 +121,13 @@ const App = () => {
 
         <Stack space="space.150">
           <Box>
-            <Label labelFor="descriptionEnabled">Description (Açıklama) Kontrolü</Label>
+            <Label labelFor="descriptionEnabled">Description check</Label>
             <Toggle
               id="descriptionEnabled"
               isChecked={descriptionEnabled}
               onChange={(e) => setDescriptionEnabled(e.target.checked)}
             />
-            <Label labelFor="minDescriptionLength">Minimum Karakter Sayısı (1 - 500)</Label>
+            <Label labelFor="minDescriptionLength">Minimum description length (1 to 500 characters)</Label>
             <Textfield
               id="minDescriptionLength"
               type="number"
@@ -146,7 +137,7 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="assigneeEnabled">Assignee (Atanan Kişi) Kontrolü</Label>
+            <Label labelFor="assigneeEnabled">Assignee check</Label>
             <Toggle
               id="assigneeEnabled"
               isChecked={assigneeEnabled}
@@ -155,7 +146,7 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="dueDateEnabled">Due Date (Bitiş Tarihi) Kontrolü</Label>
+            <Label labelFor="dueDateEnabled">Due date check</Label>
             <Toggle
               id="dueDateEnabled"
               isChecked={dueDateEnabled}
@@ -164,13 +155,13 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="recentlyUpdatedEnabled">Recently Updated Kontrolü</Label>
+            <Label labelFor="recentlyUpdatedEnabled">Recently updated check</Label>
             <Toggle
               id="recentlyUpdatedEnabled"
               isChecked={recentlyUpdatedEnabled}
               onChange={(e) => setRecentlyUpdatedEnabled(e.target.checked)}
             />
-            <Label labelFor="staleLimitDays">Kaç gün güncellenmezse uyarı versin? (1 - 365)</Label>
+            <Label labelFor="staleLimitDays">Stale limit (1 to 365 days)</Label>
             <Textfield
               id="staleLimitDays"
               type="number"
@@ -180,12 +171,12 @@ const App = () => {
           </Box>
 
           <Box>
-            <Label labelFor="labelsEnabled">Labels (Etiket) Kontrolü</Label>
+            <Label labelFor="labelsEnabled">Labels check</Label>
             <Toggle id="labelsEnabled" isChecked={labelsEnabled} onChange={(e) => setLabelsEnabled(e.target.checked)} />
           </Box>
 
           <LoadingButton appearance="primary" isLoading={saving} onClick={handleSave}>
-            Ayarları Kaydet
+            Save settings
           </LoadingButton>
         </Stack>
       </Stack>
