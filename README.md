@@ -78,6 +78,22 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 - Requests to Jira are made with `api.asUser()`, so they run with the permissions of the person viewing the issue.
 - Before saving settings, the resolver calls `/rest/api/3/mypermissions` and rejects the request unless the user has `ADMINISTER_PROJECTS` for that project.
 
+### Error handling
+
+Every resolver returns the same shape: `{ ok: true, data }` on success or `{ ok: false, error: { code, details? } }` on failure. The codes are defined in `src/errors.js` and turned into user-friendly messages by `src/frontend/errorMessages.js`.
+
+| Code                                     | When                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| `NO_PERMISSION`                          | Jira answered 401 or 403                                                           |
+| `NOT_FOUND`                              | Jira answered 404 (the issue or project does not exist, or the user cannot see it) |
+| `JIRA_ERROR`                             | Any other Jira error status                                                        |
+| `NOT_PROJECT_ADMIN`                      | A non-admin tried to save settings                                                 |
+| `INVALID_SETTINGS`                       | The payload failed `validateSettings` (`details` lists the problems)               |
+| `NO_ISSUE_CONTEXT`, `NO_PROJECT_CONTEXT` | The module context has no issue or project                                         |
+| `UNEXPECTED`                             | Anything else, such as a storage or network failure                                |
+
+Expected failures are normal results, not exceptions, so they do not show up as unhandled errors in `forge logs`. Unexpected errors are caught as well and logged with only the resolver name and the error type, never issue content, names or e-mail addresses. The issue panel shows a spinner while loading and a clear message when data cannot be loaded. The settings page does not show the form at all if the settings fail to load, so an admin cannot accidentally overwrite saved settings with defaults.
+
 ## Project structure
 
 ```
@@ -85,16 +101,19 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 ├── manifest.yml            # Forge modules, resources, runtime and permissions
 ├── package.json
 ├── babel.config.json       # Lets Jest understand ES modules
+├── jest.global-setup.js    # Runs Jest in UTC, like the Forge runtime
 ├── .eslintrc
 ├── .prettierrc
 └── src
     ├── index.js            # Resolver: getIssueHealth, getSettings, saveSettings
-    ├── rules.js            # Default settings and the health scoring logic
+    ├── errors.js           # Error codes shared by the resolver and the UI
+    ├── rules.js            # Default settings, validateSettings and the scoring logic
     ├── rules.test.js       # Jest tests for the rules engine
     ├── index.test.js       # Jest tests for the resolver (Forge modules mocked)
     └── frontend
         ├── index.jsx       # Issue panel UI (UI Kit)
-        └── settings.jsx    # Project settings page UI (UI Kit)
+        ├── settings.jsx    # Project settings page UI (UI Kit)
+        └── errorMessages.js # Error code -> user-friendly message
 ```
 
 ## Tech stack
@@ -108,10 +127,12 @@ Project settings ──► settings page (src/frontend/settings.jsx)
 
 The app requests only two scopes, declared in `manifest.yml`:
 
-| Scope            | Used for                                                  |
-| ---------------- | --------------------------------------------------------- |
-| `read:jira-work` | Reading the issue fields needed for the checks            |
-| `storage:app`    | Reading and writing per-project settings in Forge storage |
+| Scope            | Used for                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `read:jira-work` | All Jira REST calls, made as the current user: reading the issue fields needed for the checks (`GET /rest/api/3/issue/{id}`), checking that the caller is a project admin before saving settings (`GET /rest/api/3/mypermissions`), and looking up a project ID when the context only has a project key (`GET /rest/api/3/project/{key}`). |
+| `storage:app`    | Reading and writing per-project settings in Forge Key-Value Storage.                                                                                                                                                                                                                                                                       |
+
+The app has no write scope for Jira, no `asApp()` calls and no external egress, so all data stays on Atlassian's platform.
 
 ## Getting started
 
@@ -162,14 +183,29 @@ npm run lint:fix  # ESLint auto-fix + Prettier write
 npm run format    # format all files with Prettier
 ```
 
-`src/rules.test.js` covers every check (including the description length limit), past and today's due dates, stale issues, labels, the score band boundaries (80 and 50), key-based Done detection, `DEFAULT_SETTINGS`, `validateSettings` and ADF text extraction. `src/index.test.js` tests the resolvers with mocked Forge modules (single `settings-<projectId>` KVS key, permission check, validation). Run `npx jest --coverage` to see coverage.
+- `src/rules.test.js` tests each check on its own (description length limit and whitespace, assignee, due date in Jira's `YYYY-MM-DD` format for past, today and future, the stale limit boundary, labels), the score rounding and band boundaries (80 and 50), both edge cases (key-based Done detection, all checks off), that `DEFAULT_SETTINGS` matches the checks table, `validateSettings` and ADF text extraction. Date tests use a fixed clock.
+- `src/index.test.js` tests the resolvers with mocked Forge modules: the single `settings-<projectId>` KVS key, project key to ID lookup, the admin check, validation, and the error codes returned for each Jira status.
+- `src/frontend/errorMessages.test.js` checks that every error code has a message.
+
+Jest runs in UTC (see `jest.global-setup.js`) because Forge functions run in UTC and the date checks use the server time zone. Run `npx jest --coverage` to see coverage.
 
 To see runtime errors from a deployed app, use `forge logs -e development`.
+
+## Decisions
+
+- **Logic in the resolver, rules as pure functions.** The UI only calls resolvers. The resolver does the Jira calls, permission check and storage, and `src/rules.js` has no Forge imports so it can be unit tested with plain Jest.
+- **`asUser()` everywhere.** Every Jira call runs as the current user, so people only see what Jira already lets them see. There is no `asApp()` because every request has a user.
+- **Backend admin check.** Jira only shows the settings page to project admins, but a resolver can be invoked directly, so `saveSettings` checks `ADMINISTER_PROJECTS` itself.
+- **Validation on both sides.** The settings page validates for quick feedback; `validateSettings` validates again on the backend and stores only known fields.
+- **One storage key per project, by ID.** `settings-<projectId>` is used because project keys can change. Saved settings are merged with the defaults on read, so settings added later get a value for old projects.
+- **Done detection by status category key.** `statusCategory.key === 'done'` works on sites in every language, unlike the translated category name.
+- **Coded results instead of exceptions.** See [Error handling](#error-handling).
 
 ## Notes and limitations
 
 - The user interface text is currently in Turkish, while the check messages returned by the rules engine are in English.
-- The "recently updated" check compares against the current time in whole days, and the due date check compares against the start of today.
+- Dates are evaluated in the Forge runtime's time zone, which is UTC. The due date check passes until the end of the due date in UTC, and the "recently updated" check counts whole days since the last update. Users far from UTC may see a due date flip a few hours before or after their local midnight.
+- The panel calculates the score when it loads. After editing an issue, reload the page to see the new result.
 - Checks are fixed to the five listed above. Adding a new check means adding a setting to `DEFAULT_SETTINGS`, a branch in `evaluateIssueHealth`, and a control on the settings page.
 
 ## License

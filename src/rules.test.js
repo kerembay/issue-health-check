@@ -164,6 +164,212 @@ describe('Issue Health Check Rules Engine', () => {
   });
 });
 
+describe('DEFAULT_SETTINGS', () => {
+  test('Ödevdeki kontrol tablosundaki varsayılanlarla birebir aynıdır', () => {
+    expect(DEFAULT_SETTINGS).toEqual({
+      descriptionEnabled: true,
+      minDescriptionLength: 30,
+      assigneeEnabled: true,
+      dueDateEnabled: true,
+      recentlyUpdatedEnabled: true,
+      staleLimitDays: 14,
+      labelsEnabled: false,
+    });
+  });
+
+  test('Varsayılanlarda 4 kontrol çalışır, Labels kapalıdır', () => {
+    const issue = {
+      statusCategoryKey: 'new',
+      descriptionText: '',
+      assignee: null,
+      dueDate: null,
+      updated: new Date().toISOString(),
+      labels: [],
+    };
+    const names = evaluateIssueHealth(issue, DEFAULT_SETTINGS).results.map((r) => r.name);
+    expect(names).toEqual(['Description', 'Assignee', 'Due date', 'Recently updated']);
+  });
+});
+
+// Bu bölümde saat sabitlenir (jest fake timers) ve testler UTC'de çalışır
+// (bkz. jest.global-setup.js). Böylece "bugün", "dün" ve "14 gün önce" gibi
+// sınır durumları her çalıştırmada aynı sonucu verir.
+describe('Kontrol ayrıntıları (sabit saat: 2026-10-26 12:00 UTC)', () => {
+  const NOW = new Date('2026-10-26T12:00:00Z');
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const daysAgo = (days) => new Date(NOW.getTime() - days * DAY_MS).toISOString();
+
+  // Tüm kontrolleri geçen temel issue. dueDate, Jira'nın döndürdüğü gibi
+  // sadece tarih (YYYY-MM-DD) formatındadır.
+  const baseIssue = {
+    statusCategoryKey: 'indeterminate',
+    descriptionText: 'Bu açıklama otuz karakterden kesinlikle daha uzundur.',
+    assignee: { accountId: '123' },
+    dueDate: '2026-10-27',
+    updated: NOW.toISOString(),
+    labels: ['backend'],
+  };
+
+  // Sadece tek bir kontrolü açan ayar nesnesi üretir; böylece her kontrolü ayrı test ederiz.
+  const only = (key, extra = {}) => ({
+    descriptionEnabled: false,
+    assigneeEnabled: false,
+    dueDateEnabled: false,
+    recentlyUpdatedEnabled: false,
+    labelsEnabled: false,
+    minDescriptionLength: 30,
+    staleLimitDays: 14,
+    [key]: true,
+    ...extra,
+  });
+
+  const check = (issue, settings) => evaluateIssueHealth(issue, settings).results[0];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('Testler UTC saat diliminde çalışır', () => {
+    expect(new Date().getTimezoneOffset()).toBe(0);
+  });
+
+  describe('Description', () => {
+    test('Tam sınırda (30 karakter) geçer, 29 karakterde ipucuyla kalır', () => {
+      const settings = only('descriptionEnabled');
+      expect(check({ ...baseIssue, descriptionText: 'a'.repeat(30) }, settings).passed).toBe(true);
+
+      const result = check({ ...baseIssue, descriptionText: 'a'.repeat(29) }, settings);
+      expect(result.passed).toBe(false);
+      expect(result.message).toBe('Add at least 30 characters to description (currently 29).');
+    });
+  });
+
+  describe('Assignee', () => {
+    test('Atanmış kişi varsa geçer', () => {
+      expect(check(baseIssue, only('assigneeEnabled'))).toEqual({
+        name: 'Assignee',
+        passed: true,
+        message: 'Assignee is set.',
+      });
+    });
+
+    test.each([null, undefined])('Atanmış kişi %p ise ipucuyla kalır', (assignee) => {
+      expect(check({ ...baseIssue, assignee }, only('assigneeEnabled'))).toEqual({
+        name: 'Assignee',
+        passed: false,
+        message: 'Assign this issue to a team member.',
+      });
+    });
+  });
+
+  describe('Due date (Jira formatı: YYYY-MM-DD)', () => {
+    test.each([
+      ['2026-10-26', true], // bugün: henüz geçmedi
+      ['2026-10-27', true], // yarın
+      ['2027-01-01', true], // ileri bir tarih
+      ['2026-10-25', false], // dün: geçmiş
+      ['2025-12-31', false], // geçen yıl
+    ])('Bitiş tarihi %s → geçti: %p', (dueDate, passed) => {
+      expect(check({ ...baseIssue, dueDate }, only('dueDateEnabled')).passed).toBe(passed);
+    });
+
+    test('Geçmiş tarih ve eksik tarih için farklı ipuçları gösterilir', () => {
+      const settings = only('dueDateEnabled');
+      expect(check({ ...baseIssue, dueDate: '2026-10-25' }, settings).message).toBe(
+        'Due date is in the past. Update or complete it.'
+      );
+      expect(check({ ...baseIssue, dueDate: null }, settings).message).toBe('Set a due date for this issue.');
+    });
+
+    test('Bugünün tarihi, günün son saniyesine kadar geçerli kalır', () => {
+      jest.setSystemTime(new Date('2026-10-26T23:59:59Z'));
+      expect(check({ ...baseIssue, dueDate: '2026-10-26' }, only('dueDateEnabled')).passed).toBe(true);
+
+      jest.setSystemTime(new Date('2026-10-27T00:00:00Z'));
+      expect(check({ ...baseIssue, dueDate: '2026-10-26' }, only('dueDateEnabled')).passed).toBe(false);
+    });
+  });
+
+  describe('Recently updated', () => {
+    test.each([
+      [0, true],
+      [14, true], // tam sınır: geçer
+      [14.99, true], // gün farkı aşağı yuvarlanır (14)
+      [15, false], // sınır aşıldı
+      [60, false],
+    ])('%p gün önce güncellenen issue → geçti: %p', (days, passed) => {
+      expect(check({ ...baseIssue, updated: daysAgo(days) }, only('recentlyUpdatedEnabled')).passed).toBe(passed);
+    });
+
+    test('Bayat issue mesajı gün sayısını ve sınırı içerir', () => {
+      const result = check({ ...baseIssue, updated: daysAgo(15) }, only('recentlyUpdatedEnabled'));
+      expect(result.message).toBe("Issue hasn't been updated in 15 days (limit is 14).");
+    });
+
+    test('Özel stale sınırı (1 gün) kullanılır', () => {
+      const settings = only('recentlyUpdatedEnabled', { staleLimitDays: 1 });
+      expect(check({ ...baseIssue, updated: daysAgo(1) }, settings).passed).toBe(true);
+      expect(check({ ...baseIssue, updated: daysAgo(2) }, settings).passed).toBe(false);
+    });
+  });
+
+  describe('Labels', () => {
+    test.each([
+      [['backend'], true],
+      [[], false],
+      [undefined, false],
+    ])('labels %p → geçti: %p', (labels, passed) => {
+      expect(check({ ...baseIssue, labels }, only('labelsEnabled')).passed).toBe(passed);
+    });
+  });
+
+  describe('Skor ve yuvarlama', () => {
+    // Description, Assignee ve Due date açık; Recently updated ve Labels kapalı.
+    const threeChecks = { ...only('descriptionEnabled'), assigneeEnabled: true, dueDateEnabled: true };
+
+    test.each([
+      [{}, 100, 'Healthy'],
+      [{ assignee: null }, 67, 'Need attention'], // 2/3 = 66.67 → 67
+      [{ assignee: null, dueDate: null }, 33, 'At risk'], // 1/3 = 33.33 → 33
+      [{ assignee: null, dueDate: null, descriptionText: '' }, 0, 'At risk'],
+    ])('3 kontrolde %p → %p (%s)', (overrides, score, band) => {
+      const result = evaluateIssueHealth({ ...baseIssue, ...overrides }, threeChecks);
+      expect(result.score).toBe(score);
+      expect(result.band).toBe(band);
+    });
+
+    test('3/4 = 75 "Need attention" bandındadır (80 sınırının altı)', () => {
+      const result = evaluateIssueHealth({ ...baseIssue, assignee: null }, DEFAULT_SETTINGS);
+      expect(result.score).toBe(75);
+      expect(result.band).toBe('Need attention');
+    });
+
+    test('Başarısız her kontrolün boş olmayan bir ipucu vardır', () => {
+      const allOn = { ...DEFAULT_SETTINGS, labelsEnabled: true };
+      const badIssue = {
+        ...baseIssue,
+        descriptionText: '',
+        assignee: null,
+        dueDate: null,
+        updated: daysAgo(30),
+        labels: [],
+      };
+      const { results, score } = evaluateIssueHealth(badIssue, allOn);
+      expect(score).toBe(0);
+      expect(results).toHaveLength(5);
+      for (const result of results) {
+        expect(result.passed).toBe(false);
+        expect(result.message.length).toBeGreaterThan(0);
+      }
+    });
+  });
+});
+
 describe('validateSettings', () => {
   test('DEFAULT_SETTINGS geçerlidir ve aynen döner', () => {
     const result = validateSettings(DEFAULT_SETTINGS);
