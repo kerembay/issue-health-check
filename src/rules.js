@@ -33,7 +33,9 @@ export const evaluateIssueHealth = (issueData, settings) => {
 
   if (settings.descriptionEnabled) {
     totalEnabled++;
-    const length = issueData.descriptionText.length;
+    // Baştaki/sondaki boşlukları saymıyoruz; aksi halde sadece boşluk veya
+    // satır sonlarından oluşan bir açıklama minimum uzunluğu geçebilirdi.
+    const length = (issueData.descriptionText || '').trim().length;
     if (length >= settings.minDescriptionLength) {
       passedChecks++;
       results.push({ name: 'Description', passed: true, message: 'Description meets minimum length.' });
