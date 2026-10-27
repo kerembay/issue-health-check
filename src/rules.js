@@ -8,6 +8,73 @@ export const DEFAULT_SETTINGS = {
   labelsEnabled: false,
 };
 
+// Ayar alanlarının izin verilen sınırları. Ayarlar sayfasındaki kurallarla aynıdır
+// (R5): açıklama uzunluğu 1-500 karakter, bayatlık sınırı 1-365 gün.
+export const SETTINGS_LIMITS = {
+  minDescriptionLength: { min: 1, max: 500 },
+  staleLimitDays: { min: 1, max: 365 },
+};
+
+// Açık/kapalı (boolean) olması gereken ayar alanları.
+const BOOLEAN_SETTINGS = [
+  'descriptionEnabled',
+  'assigneeEnabled',
+  'dueDateEnabled',
+  'recentlyUpdatedEnabled',
+  'labelsEnabled',
+];
+
+/**
+ * Kaydedilmek istenen ayarları doğrular. Saf (pure) bir fonksiyondur: dışarıya
+ * erişmez, girdiyi değiştirmez; bu sayede Forge olmadan kolayca test edilir.
+ *
+ * - Girdi düz bir nesne olmalıdır.
+ * - Boolean alanlar gönderildiyse true/false olmalıdır.
+ * - Sayısal alanlar gönderildiyse SETTINGS_LIMITS aralığında tam sayı olmalıdır.
+ * - Gönderilmeyen alanlar DEFAULT_SETTINGS'teki değeri alır.
+ * - Bilinmeyen alanlar sessizce atılır; böylece KVS'ye sadece tanıdığımız
+ *   anahtarlar yazılır.
+ *
+ * @param {object} input Kullanıcıdan (resolver payload'ı) gelen ayarlar.
+ * @returns {{ valid: boolean, errors: string[], settings: object | null }}
+ *   valid true ise settings temizlenmiş ve kaydedilmeye hazır nesnedir,
+ *   false ise settings null'dır ve errors hataları listeler.
+ */
+export const validateSettings = (input) => {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return { valid: false, errors: ['Ayarlar bir nesne olmalıdır.'], settings: null };
+  }
+
+  const errors = [];
+  // Varsayılanlardan başlayıp sadece doğrulanan alanları üzerine yazıyoruz.
+  const settings = { ...DEFAULT_SETTINGS };
+
+  for (const key of BOOLEAN_SETTINGS) {
+    if (input[key] === undefined) continue;
+    if (typeof input[key] !== 'boolean') {
+      errors.push(`${key} true veya false olmalıdır.`);
+    } else {
+      settings[key] = input[key];
+    }
+  }
+
+  for (const [key, { min, max }] of Object.entries(SETTINGS_LIMITS)) {
+    if (input[key] === undefined) continue;
+    const value = input[key];
+    // Number.isInteger, string ("30"), NaN, Infinity ve ondalıklı sayıları reddeder.
+    if (!Number.isInteger(value) || value < min || value > max) {
+      errors.push(`${key} ${min} ile ${max} arasında bir tam sayı olmalıdır.`);
+    } else {
+      settings[key] = value;
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors, settings: null };
+  }
+  return { valid: true, errors: [], settings };
+};
+
 export const extractTextFromAdf = (adf) => {
   if (!adf || !adf.content) return '';
   let text = '';

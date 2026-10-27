@@ -1,7 +1,7 @@
 import Resolver from '@forge/resolver';
 import api, { route } from '@forge/api';
 import kvsDefault, { kvs as kvsNamed } from '@forge/kvs';
-import { evaluateIssueHealth, extractTextFromAdf, DEFAULT_SETTINGS } from './rules.js';
+import { evaluateIssueHealth, extractTextFromAdf, validateSettings, DEFAULT_SETTINGS } from './rules.js';
 
 const kvs = kvsNamed || kvsDefault;
 const resolver = new Resolver();
@@ -43,8 +43,13 @@ resolver.define('saveSettings', async (req) => {
     throw new Error('Erişim reddedildi: Ayarları kaydetmek için Proje Yöneticisi (Admin) olmalısınız.');
   }
 
-  const newSettings = req.payload;
-  
+  // Frontend de doğrulama yapıyor ama resolver doğrudan çağrılabileceği için
+  // sunucu tarafında tekrar doğruluyoruz. Sadece temizlenmiş ayarları kaydediyoruz.
+  const { valid, errors, settings: newSettings } = validateSettings(req.payload);
+  if (!valid) {
+    throw new Error(`Geçersiz ayarlar: ${errors.join(' ')}`);
+  }
+
   await kvs.set(`settings-${projectId}`, newSettings);
   if (projectKey && projectKey !== projectId) {
     await kvs.set(`settings-${projectKey}`, newSettings);
