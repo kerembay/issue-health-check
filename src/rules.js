@@ -121,9 +121,14 @@ export const evaluateIssueHealth = (issueData, settings) => {
 
   if (settings.descriptionEnabled) {
     totalEnabled++;
-    // Baştaki/sondaki boşlukları saymıyoruz; aksi halde sadece boşluk veya
-    // satır sonlarından oluşan bir açıklama minimum uzunluğu geçebilirdi.
-    const length = (issueData.descriptionText || '').trim().length;
+    // Sadece anlamlı karakterleri saymak için:
+    // 1. replace(/\s+/g, ' '): art arda gelen boşluk, tab ve satır sonlarını
+    //    tek bir boşluğa indirir. Aksi halde "a" + 100 boşluk + "b" gibi
+    //    boşlukla şişirilmiş bir açıklama minimum uzunluğu geçebilirdi.
+    // 2. trim(): baştaki ve sondaki boşlukları siler; böylece sadece boşluktan
+    //    oluşan bir açıklamanın uzunluğu 0 olur.
+    // Kelime aralarındaki tek boşluklar sayılmaya devam eder.
+    const length = (issueData.descriptionText || '').replace(/\s+/g, ' ').trim().length;
     if (length >= settings.minDescriptionLength) {
       passedChecks++;
       results.push({ name: 'Description', passed: true, message: 'Description meets minimum length.' });

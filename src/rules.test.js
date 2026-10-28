@@ -138,11 +138,36 @@ describe('Issue Health Check Rules Engine', () => {
       false
     );
 
-    // Tam 30 anlamlı karakter: sınırda geçer (aradaki boşluklar sayılır)
-    const exact = { ...perfectIssue, descriptionText: '  ' + 'a'.repeat(14) + '  ' + 'b'.repeat(14) + '  ' };
+    // Tam 30 anlamlı karakter: sınırda geçer. Aradaki iki boşluk teke indirilir
+    // ve o tek boşluk sayılır: 15 + 1 + 14 = 30.
+    const exact = { ...perfectIssue, descriptionText: '  ' + 'a'.repeat(15) + '  ' + 'b'.repeat(14) + '  ' };
     expect(evaluateIssueHealth(exact, DEFAULT_SETTINGS).results.find((r) => r.name === 'Description').passed).toBe(
       true
     );
+  });
+
+  test('Açıklama kontrolü: aradaki art arda boşluklar tek boşluk sayılır', () => {
+    const description = (text) =>
+      evaluateIssueHealth({ ...perfectIssue, descriptionText: text }, DEFAULT_SETTINGS).results.find(
+        (r) => r.name === 'Description'
+      );
+
+    // "a" + 100 boşluk + "b" → "a b" (3 karakter): boşluklarla şişirilmiş açıklama geçmez
+    const padded = description('a' + ' '.repeat(100) + 'b');
+    expect(padded.passed).toBe(false);
+    expect(padded.message).toBe('Add at least 30 characters to description (currently 3).');
+
+    // Jira'da bulunan gerçek örnek: "a", çok sayıda boşluk, "….", sonra Shift+Enter ile
+    // "b " ve "c". ADF'den gelen metin "a<boşluklar>….b c" olur → "a ….b c" (7 karakter)
+    const realCase = description('a' + ' '.repeat(100) + '….' + 'b ' + 'c');
+    expect(realCase.passed).toBe(false);
+    expect(realCase.message).toContain('(currently 7)');
+
+    // Tab ve satır sonları da boşluk sayılır ve teke indirilir: "a\n\n\tb" → "a b"
+    expect(description('a\n\n\tb').message).toContain('(currently 3)');
+
+    // Tek boşluklu normal bir cümle etkilenmez ve geçmeye devam eder (53 karakter)
+    expect(description('Bu açıklama otuz karakterden kesinlikle daha uzundur.').passed).toBe(true);
   });
 
   test('Açıklama kontrolü: açıklama hiç yoksa (undefined) hata vermeden başarısız olur', () => {
