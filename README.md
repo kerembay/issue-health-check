@@ -30,13 +30,13 @@ score = round(passed checks / enabled checks * 100)
 
 ### Checks
 
-| Check            | Passes when                                                                                                                                                | Default |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Description      | The description text has at least _N_ characters (default 30). The Atlassian Document Format (ADF) description is flattened to plain text before counting. | On      |
-| Assignee         | The issue has an assignee.                                                                                                                                 | On      |
-| Due date         | A due date is set and it is today or later.                                                                                                                | On      |
-| Recently updated | The issue was updated within the last _N_ days (default 14).                                                                                               | On      |
-| Labels           | The issue has at least one label.                                                                                                                          | Off     |
+| Check            | Passes when                                                                                                                                                                                                                                              | Default |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Description      | The description text has at least _N_ characters (default 30). The Atlassian Document Format (ADF) description is flattened to plain text before counting. Repeated whitespace counts as a single space, and leading and trailing whitespace is ignored. | On      |
+| Assignee         | The issue has an assignee.                                                                                                                                                                                                                               | On      |
+| Due date         | A due date is set and it is today or later.                                                                                                                                                                                                              | On      |
+| Recently updated | The issue was updated within the last _N_ days (default 14).                                                                                                                                                                                             | On      |
+| Labels           | The issue has at least one label.                                                                                                                                                                                                                        | Off     |
 
 ### Special cases
 
@@ -104,6 +104,10 @@ Expected failures are normal results, not exceptions, so they do not show up as 
 ├── jest.global-setup.js    # Runs Jest in UTC, like the Forge runtime
 ├── .eslintrc
 ├── .prettierrc
+├── .prettierignore
+├── static
+│   └── icons
+│       └── health-check.svg  # Issue panel icon, bundled with the app
 └── src
     ├── index.js            # Resolver: getIssueHealth, getSettings, saveSettings
     ├── errors.js           # Error codes shared by the resolver and the UI
@@ -113,7 +117,8 @@ Expected failures are normal results, not exceptions, so they do not show up as 
     └── frontend
         ├── index.jsx       # Issue panel UI (UI Kit)
         ├── settings.jsx    # Project settings page UI (UI Kit)
-        └── errorMessages.js # Error code -> user-friendly message
+        ├── errorMessages.js      # Error code -> user-friendly message
+        └── errorMessages.test.js # Every error code has a message
 ```
 
 ## Tech stack
@@ -202,6 +207,7 @@ To see runtime errors from a deployed app, use `forge logs -e development`.
 - **One storage key per project, by ID.** `settings-<projectId>` is used because project keys can change. Saved settings are merged with the defaults on read, so settings added later get a value for old projects.
 - **Done detection by status category key.** `statusCategory.key === 'done'` works on sites in every language, unlike the translated category name.
 - **Coded results instead of exceptions.** See [Error handling](#error-handling).
+- **Bundled icon.** The issue panel icon is a file in the app (`static/icons/health-check.svg`), not an external URL, so the app makes no calls outside Atlassian.
 
 ## Notes and limitations
 
