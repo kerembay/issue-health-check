@@ -7,7 +7,7 @@ modules:
         function: resolver
       render: native
       title: Issue Health Check
-      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+      icon: resource:icons;health-check.svg
 
   # Proje ayarları sayfası: proje yöneticileri kontrolleri açıp kapatır ve sınırları belirler.
   jira:projectSettingsPage:
@@ -28,6 +28,8 @@ resources:
     path: src/frontend/index.jsx
   - key: settings-page
     path: src/frontend/settings.jsx
+  - key: icons
+    path: static/icons
 
 app:
   runtime:
