@@ -1,6 +1,6 @@
 # Issue Health Check
 
-A [Atlassian Forge](https://developer.atlassian.com/platform/forge/) app for Jira Cloud that scores the "health" of each issue directly on the issue view. It shows a score from 0 to 100, a status band, and a pass/fail list of checks with a short hint for each failed check. Project admins can choose which checks are active and tune their thresholds from the project settings.
+An [Atlassian Forge](https://developer.atlassian.com/platform/forge/) app for Jira Cloud that scores the "health" of each issue directly on the issue view. It shows a score from 0 to 100, a status band, and a pass/fail list of checks with a short hint for each failed check. Project admins can choose which checks are active and tune their thresholds from the project settings.
 
 ## Why this exists
 
